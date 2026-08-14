@@ -1,7 +1,7 @@
 /**
  * Wire and domain types for the memory service. Every value that crosses the
  * Typert wire is JSON-only; the projection value folds from session events.
- * @module @deepseek-ai/dsh-mem
+ * @module @deepseek-ai/simplemem
  */
 
 // Type-only: makes the SessionProjectionMap merge target resolvable.

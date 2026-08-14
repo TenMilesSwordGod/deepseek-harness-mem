@@ -3,7 +3,7 @@
  * Remote contribution and registers the header-utilities entry. Live
  * activity arrives through the 'memory' session projection; the inject face
  * carries only the remote verbs.
- * @module @deepseek-ai/dsh-client-ui-mem
+ * @module simplemem-web
  */
 
 import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
@@ -14,7 +14,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the 'memory' SessionProjectionMap key merge.
-import type {} from '@deepseek-ai/dsh-mem/client'
+import type {} from 'simplemem/client'
 import { memoryRemote } from './remote.ts'
 import type { MemoryRemoteNamespace } from './remote.ts'
 import { MemWidget } from './MemWidget.tsx'

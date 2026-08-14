@@ -4,14 +4,14 @@
  * activity arrives through the 'memory' session projection and animates the
  * chip plus a transient toast; embedding warmup progress is polled from the
  * host status Remote.
- * @module @deepseek-ai/dsh-client-ui-mem
+ * @module simplemem-web
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
-import type { MemModelEntry, MemProjection, MemStatus } from '@deepseek-ai/dsh-mem/client'
+import type { MemModelEntry, MemProjection, MemStatus } from 'simplemem/client'
 import { MemStatsModal } from './MemStats.tsx'
 import type { MemStatsActions } from './MemStats.tsx'
 import { memStyles } from './styles.ts'
@@ -19,15 +19,15 @@ import { memStyles } from './styles.ts'
 /** Mutation verbs injected from the plugin apply closure. */
 export interface MemActions extends MemStatsActions {
   status(): Promise<RemoteResult<MemStatus>>
-  warmup(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemWarmupResponse>>
-  reembed(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemReembedResponse>>
-  downloadModel(model: string): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemDownloadResponse>>
-  cancelDownload(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemCancelDownloadResponse>>
-  models(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemModelsResponse>>
-  configure(model: string): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemConfigureResponse>>
-  search(query: string, limit: number): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemSearchResponse>>
-  record(content: string, tags?: string, scope?: 'project' | 'global'): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemRecordResponse>>
-  forget(id: string): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemForgetResponse>>
+  warmup(): Promise<RemoteResult<import('simplemem/client').MemWarmupResponse>>
+  reembed(): Promise<RemoteResult<import('simplemem/client').MemReembedResponse>>
+  downloadModel(model: string): Promise<RemoteResult<import('simplemem/client').MemDownloadResponse>>
+  cancelDownload(): Promise<RemoteResult<import('simplemem/client').MemCancelDownloadResponse>>
+  models(): Promise<RemoteResult<import('simplemem/client').MemModelsResponse>>
+  configure(model: string): Promise<RemoteResult<import('simplemem/client').MemConfigureResponse>>
+  search(query: string, limit: number): Promise<RemoteResult<import('simplemem/client').MemSearchResponse>>
+  record(content: string, tags?: string, scope?: 'project' | 'global'): Promise<RemoteResult<import('simplemem/client').MemRecordResponse>>
+  forget(id: string): Promise<RemoteResult<import('simplemem/client').MemForgetResponse>>
 }
 
 /** Full composed props: session standard kit + injected verbs + locale seat. */

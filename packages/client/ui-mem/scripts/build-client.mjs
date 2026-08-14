@@ -46,7 +46,7 @@ await build({
 
 const body = readFileSync(outfile, 'utf8')
 const wrapped = `window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-mem",
+	id: "simplemem-web",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;

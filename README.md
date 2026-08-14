@@ -1,4 +1,4 @@
-# deepseek-harness-mem
+# simplemem
 
 **Persistent semantic memory for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)** — a community plugin inspired by [opencode-mem](https://github.com/tickernelz/opencode-mem).
 
@@ -12,7 +12,7 @@ It gives the coding agent a durable, SQLite-backed memory with local CPU embeddi
 
 ## Features
 
-**For the agent (host plugin `@deepseek-ai/dsh-mem`)**
+**For the agent (host plugin `simplemem`)**
 
 - `mem_record` / `mem_search` / `mem_forget` tools with deduplication and `project` / `global` scoping (project = the session's working-directory tree, mirroring opencode-mem's per-project shards).
 - A system-prompt section that tells the model **when to read and when to write**: search at task start and before answering questions about past work; record as soon as a durable fact, preference, or decision settles; never record transient chat details.
@@ -21,7 +21,7 @@ It gives the coding agent a durable, SQLite-backed memory with local CPU embeddi
 - Switching to a model with different dimensions shows a **转换索引 (re-embed) button** — stored memories stay untouched until you click it, then migrate in the background with live progress.
 - Typert Remote API for the widget: `memory/status`, `memory/models`, `memory/configure`, `memory/search`, `memory/record`, `memory/list`, `memory/listAll`, `memory/cacheStats`, `memory/forget`.
 
-**For the human (client plugin `@deepseek-ai/dsh-client-ui-mem`)**
+**For the human (client plugin `simplemem-web`)**
 
 - A pill button in the top-right header (`conversation.session.header.utilities`): state dot (ready / warming / error) + memory count.
 - Panel: backend status, **embedding model selector**, cache tip, quick semantic search with similarity scores, manual record, per-item delete, and a strategy hint.
@@ -51,7 +51,7 @@ The selected model is persisted in the SQLite meta table and survives restarts. 
 One command into your profile (default: `~/.dsh/profiles/web`):
 
 ```sh
-git clone https://github.com/TenMilesSwordGod/deepseek-harness-mem.git
+git clone https://github.com/TenMilesSwordGod/simplemem.git
 cd deepseek-harness-mem
 ./scripts/quick-deploy.sh                 # or: ./scripts/quick-deploy.sh ~/.dsh/profiles/web
 ```
@@ -86,8 +86,8 @@ Requirements: Node ≥ 22.5 (uses `node:sqlite`), a DeepSeek Harness profile (th
    ```json
    {
      "dependencies": {
-       "@deepseek-ai/dsh-mem": "file:/path/to/deepseek-harness-mem/packages/mem",
-       "@deepseek-ai/dsh-client-ui-mem": "file:/path/to/deepseek-harness-mem/packages/client/ui-mem"
+       "simplemem": "file:/path/to/deepseek-harness-mem/packages/mem",
+       "simplemem-web": "file:/path/to/deepseek-harness-mem/packages/client/ui-mem"
      }
    }
    ```
@@ -97,13 +97,13 @@ Requirements: Node ≥ 22.5 (uses `node:sqlite`), a DeepSeek Harness profile (th
    ```yaml
    - insert:
        - id: mem
-         name: '@deepseek-ai/dsh-mem'
+         name: 'simplemem'
          config:
            embeddingModel: Xenova/nomic-embed-text-v1
            embeddingDimensions: 768
            warmupOnBoot: false
        - id: ui-mem
-         name: '@deepseek-ai/dsh-client-ui-mem'
+         name: 'simplemem-web'
    ```
 
 4. Install and start (the **one-time** restart new packages require):
@@ -167,7 +167,7 @@ The system-prompt guidance shipped with the plugin:
 
 ```
 ┌─────────────────────────── host (Node) ───────────────────────────┐
-│ @deepseek-ai/dsh-mem                                              │
+│ simplemem                                              │
 │  MemService (Typert Remote service, key `memory`)                 │
 │   ├─ MemoryStore     node:sqlite · WAL · schema v2 (dims column)  │
 │   ├─ EmbeddingService transformers.js · per-model task prefixes   │
@@ -178,7 +178,7 @@ The system-prompt guidance shipped with the plugin:
 └───────────────────────────────┬───────────────────────────────────┘
                                 │ Typert RPC + session projections
 ┌─────────────────────────── browser (React 18) ────────────────────┐
-│ @deepseek-ai/dsh-client-ui-mem                                    │
+│ simplemem-web                                    │
 │  MemWidget — registered into conversation.session.header.utilities│
 │   chip (state dot + count) · toast animations · panel:            │
 │   status / model selector + cache tip / quick search / record     │

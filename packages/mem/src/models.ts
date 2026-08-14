@@ -2,7 +2,7 @@
  * Built-in embedding model catalog: small ONNX models that infer on CPU,
  * mirroring opencode-mem's local-model menu. Dimensions are fixed per model;
  * switching models with different dimensions triggers a background re-embed.
- * @module @deepseek-ai/dsh-mem
+ * @module @deepseek-ai/simplemem
  */
 
 /** Which task-prefix convention a model expects before embedding. */

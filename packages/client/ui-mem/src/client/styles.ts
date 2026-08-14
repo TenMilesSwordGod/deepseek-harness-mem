@@ -2,7 +2,7 @@
  * Widget stylesheet, injected once at bundle evaluation (the module loader
  * claims the <style> element for reload disposal). Tokens come from the
  * shared --dsw-* design platform; all animations carry reduced-motion guards.
- * @module @deepseek-ai/dsh-client-ui-mem
+ * @module simplemem-web
  */
 
 export const memStyles = `

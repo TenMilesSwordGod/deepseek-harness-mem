@@ -1,6 +1,6 @@
 /**
  * Schemastery Config for the memory service, with deployment defaults.
- * @module @deepseek-ai/dsh-mem
+ * @module @deepseek-ai/simplemem
  */
 
 import z from '@deepseek-ai/schemastery'

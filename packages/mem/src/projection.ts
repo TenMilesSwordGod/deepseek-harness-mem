@@ -1,7 +1,7 @@
 /**
  * Session projection fold for the memory widget: the latest memory tool call
  * and per-kind call counts, derived from `tool/call` events only.
- * @module @deepseek-ai/dsh-mem
+ * @module @deepseek-ai/simplemem
  */
 
 import { z as zod } from 'zod'

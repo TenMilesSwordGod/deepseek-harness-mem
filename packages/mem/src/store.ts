@@ -2,7 +2,7 @@
  * SQLite-backed memory store on node:sqlite. Embeddings are stored as raw
  * float32 LE blobs; similarity is a cosine over candidates loaded per scope,
  * which keeps the store dependency-free and fast for small memory corpora.
- * @module @deepseek-ai/dsh-mem
+ * @module @deepseek-ai/simplemem
  */
 
 import { DatabaseSync } from 'node:sqlite'

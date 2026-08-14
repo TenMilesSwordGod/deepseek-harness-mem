@@ -6,7 +6,7 @@
  * Referenced prior art: opencode-mem (local embeddings, record/search tools,
  * per-project scoping); this port keeps that shape on node:sqlite and the
  * DeepSeek Harness plugin seams.
- * @module @deepseek-ai/dsh-mem
+ * @module @deepseek-ai/simplemem
  */
 
 import { Context } from '@deepseek-ai/cordis'

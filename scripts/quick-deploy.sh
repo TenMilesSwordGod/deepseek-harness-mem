@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Quick deploy for deepseek-harness-mem into a DeepSeek Harness profile.
+# Quick deploy for simplemem into a DeepSeek Harness profile.
 #
 # Usage:
 #   ./scripts/quick-deploy.sh [profile-dir]     # default: ~/.dsh/profiles/web
@@ -49,12 +49,12 @@ const [file, memPkg, uiPkg] = process.argv.slice(2)
 const pkg = JSON.parse(fs.readFileSync(file, 'utf8'))
 pkg.dependencies ??= {}
 let changed = false
-if (pkg.dependencies['@deepseek-ai/dsh-mem'] !== memPkg) {
-  pkg.dependencies['@deepseek-ai/dsh-mem'] = memPkg
+if (pkg.dependencies['simplemem'] !== memPkg) {
+  pkg.dependencies['simplemem'] = memPkg
   changed = true
 }
-if (pkg.dependencies['@deepseek-ai/dsh-client-ui-mem'] !== uiPkg) {
-  pkg.dependencies['@deepseek-ai/dsh-client-ui-mem'] = uiPkg
+if (pkg.dependencies['simplemem-web'] !== uiPkg) {
+  pkg.dependencies['simplemem-web'] = uiPkg
   changed = true
 }
 fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`)
@@ -63,23 +63,23 @@ NODE
 
 # 2. cordis.patch.yml rows (idempotent marker)
 PATCH_FILE="$PROFILE_DIR/cordis.patch.yml"
-BLOCK='# deepseek-harness-mem: SQLite-backed semantic memory (host service + tools)
+BLOCK='# simplemem: SQLite-backed semantic memory (host service + tools)
 # and the top-right header widget (client UI plugin).
 - insert:
     - id: mem
-      name: '"'"'@deepseek-ai/dsh-mem'"'"'
+      name: '"'"'simplemem'"'"'
       config:
         embeddingModel: Xenova/nomic-embed-text-v1
         embeddingDimensions: 768
         warmupOnBoot: false
     - id: ui-mem
-      name: '"'"'@deepseek-ai/dsh-client-ui-mem'"'"''
+      name: '"'"'simplemem-web'"'"''
 
 node - "$PATCH_FILE" "$BLOCK" <<'NODE'
 const fs = require('node:fs')
 const [file, block] = process.argv.slice(2)
 let text = fs.readFileSync(file, 'utf8')
-const hasBlock = text.includes('deepseek-harness-mem:')
+const hasBlock = text.includes('simplemem:')
 // Always drop a standalone empty-array root line (`[]` ends the YAML
 // document; appending after it is invalid). This also self-heals files
 // broken by earlier script versions.

@@ -3,7 +3,7 @@
  * opencode-mem's default: a feature-extraction pipeline over the configured
  * model with nomic task prefixes, mean pooling, and L2 normalization. The
  * pipeline is lazy (first use or warmupOnBoot) and reports download progress.
- * @module @deepseek-ai/dsh-mem
+ * @module @deepseek-ai/simplemem
  */
 
 import { existsSync, mkdirSync, rmSync } from 'node:fs'

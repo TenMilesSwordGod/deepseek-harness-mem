@@ -1,4 +1,4 @@
-# deepseek-harness-mem
+# simplemem
 
 **DeepSeek Harness 的持久语义记忆插件** —— 受 [opencode-mem](https://github.com/tickernelz/opencode-mem) 启发的社区项目。
 
@@ -12,7 +12,7 @@
 
 ## 功能
 
-**给 Agent 用（宿主插件 `@deepseek-ai/dsh-mem`）**
+**给 Agent 用（宿主插件 `simplemem`）**
 
 - `mem_record` / `mem_search` / `mem_forget` 三个工具，带去重和 `project` / `global` 作用域（project = 会话所在工作目录树，对应 opencode-mem 的按项目分片）。
 - 系统提示引导，明确告诉模型**何时读、何时写**：任务开始时先搜；回答「过去的做法 / 之前的决定」之前先搜；持久事实（偏好、决策、非显而易见的修复、约定）一经落定就记录；绝不记录临时对话细节。
@@ -21,7 +21,7 @@
 - 切换到不同维度的模型时会出现**「转换索引」按钮**——存储的记忆保持原样，点击按钮后才在后台批量转换（进度实时可见），转换完成立即可搜。
 - 供组件调用的 Typert Remote：`memory/status`、`memory/models`、`memory/configure`、`memory/search`、`memory/record`、`memory/list`、`memory/listAll`、`memory/cacheStats`、`memory/forget`。
 
-**给人用（客户端插件 `@deepseek-ai/dsh-client-ui-mem`）**
+**给人用（客户端插件 `simplemem-web`）**
 
 - 顶部右上角胶囊按钮（挂载于 `conversation.session.header.utilities`）：状态圆点（就绪/加载中/出错）+ 记忆总数。
 - 面板：后端状态、**嵌入模型选择器**、缓存提示、语义快速搜索（带相似度分数）、手动记录、逐条删除、读写策略说明。
@@ -51,7 +51,7 @@
 克隆后跑一条命令（默认部署到 `~/.dsh/profiles/web`）：
 
 ```sh
-git clone https://github.com/TenMilesSwordGod/deepseek-harness-mem.git
+git clone https://github.com/TenMilesSwordGod/simplemem.git
 cd deepseek-harness-mem
 ./scripts/quick-deploy.sh                 # 或：./scripts/quick-deploy.sh ~/.dsh/profiles/web
 ```
@@ -84,8 +84,8 @@ install`（跳过无用的 CUDA 二进制）。之后**重启一次 `dsh web`**�
    ```json
    {
      "dependencies": {
-       "@deepseek-ai/dsh-mem": "file:/path/to/deepseek-harness-mem/packages/mem",
-       "@deepseek-ai/dsh-client-ui-mem": "file:/path/to/deepseek-harness-mem/packages/client/ui-mem"
+       "simplemem": "file:/path/to/deepseek-harness-mem/packages/mem",
+       "simplemem-web": "file:/path/to/deepseek-harness-mem/packages/client/ui-mem"
      }
    }
    ```
@@ -95,13 +95,13 @@ install`（跳过无用的 CUDA 二进制）。之后**重启一次 `dsh web`**�
    ```yaml
    - insert:
        - id: mem
-         name: '@deepseek-ai/dsh-mem'
+         name: 'simplemem'
          config:
            embeddingModel: Xenova/nomic-embed-text-v1
            embeddingDimensions: 768
            warmupOnBoot: false
        - id: ui-mem
-         name: '@deepseek-ai/dsh-client-ui-mem'
+         name: 'simplemem-web'
    ```
 
 4. 安装并启动（新包所需的**唯一一次**重启）：
@@ -165,7 +165,7 @@ curl -L -o "<dsh-home>/storages/mem-models/Xenova/nomic-embed-text-v1/onnx/model
 
 ```
 ┌─────────────────────────── 宿主 (Node) ───────────────────────────┐
-│ @deepseek-ai/dsh-mem                                              │
+│ simplemem                                              │
 │  MemService（Typert Remote 服务，键 `memory`）                    │
 │   ├─ MemoryStore     node:sqlite · WAL · schema v2（dims 列）     │
 │   ├─ EmbeddingService transformers.js · 按模型任务前缀            │
@@ -176,7 +176,7 @@ curl -L -o "<dsh-home>/storages/mem-models/Xenova/nomic-embed-text-v1/onnx/model
 └───────────────────────────────┬───────────────────────────────────┘
                                 │ Typert RPC + 会话投影
 ┌─────────────────────────── 浏览器 (React 18) ────────────────────┐
-│ @deepseek-ai/dsh-client-ui-mem                                    │
+│ simplemem-web                                    │
 │  MemWidget —— 注册进 conversation.session.header.utilities        │
 │   胶囊（状态点+计数）· toast 动画 · 面板：                         │
 │   状态 / 模型选择器+缓存提示 / 快速搜索 / 记录                      │

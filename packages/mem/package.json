@@ -1,7 +1,7 @@
 {
-  "name": "@deepseek-ai/dsh-mem",
+  "name": "simplemem",
   "version": "0.1.0",
-  "description": "Persistent semantic memory for DeepSeek Harness: SQLite-backed memory tools, an embedding service, and Typert Remotes for the browser widget",
+  "description": "simplemem: persistent semantic memory for DeepSeek Harness — SQLite, local CPU embeddings, top-right web widget",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -44,10 +44,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TenMilesSwordGod/deepseek-harness-mem.git"
+    "url": "git+https://github.com/TenMilesSwordGod/simplemem.git"
   },
   "author": "TenMilesSwordGod",
-  "homepage": "https://github.com/TenMilesSwordGod/deepseek-harness-mem#readme",
+  "homepage": "https://github.com/TenMilesSwordGod/simplemem#readme",
   "engines": {
     "node": ">=22.5.0"
   },

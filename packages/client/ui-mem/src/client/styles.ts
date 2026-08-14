@@ -900,6 +900,12 @@ export const memStyles = `
   color: var(--dsw-alias-label-primary);
 }
 
+.dshmem-stats-summary {
+  font-size: 11px;
+  color: var(--dsw-alias-label-caption);
+  font-variant-numeric: tabular-nums;
+}
+
 .dshmem-stats-sortbtn {
   margin-left: auto;
   border: none;

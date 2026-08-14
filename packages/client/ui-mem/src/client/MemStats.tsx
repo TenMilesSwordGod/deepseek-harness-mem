@@ -317,6 +317,11 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
         <div className="dshmem-stats-section">
           <div className="dshmem-stats-section-head">
             <span className="dshmem-stats-section-title">{t('statsCacheRank')}</span>
+            {cache !== null && (
+              <span className="dshmem-stats-summary">
+                {t('statsCacheHits')} {cache.hits} · {t('statsMisses')} {cache.misses}
+              </span>
+            )}
             <button
               type="button"
               className="dshmem-stats-sortbtn"
@@ -331,7 +336,7 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
               <span className="dshmem-stats-col-hits">{t('statsHits')}</span>
               <span className="dshmem-stats-col-last">{t('statsLastHit')}</span>
             </div>
-            {sortedCacheTop.length === 0 && <div className="dshmem-stats-empty">{t('statsEmpty')}</div>}
+            {sortedCacheTop.length === 0 && <div className="dshmem-stats-empty">{t('statsCacheEmpty')}</div>}
             {sortedCacheTop.map((entry, index) => (
               <div className="dshmem-stats-row dshmem-stats-row-cache" key={index}>
                 <span className="dshmem-stats-col-cachetext" title={entry.text}>{entry.text}</span>

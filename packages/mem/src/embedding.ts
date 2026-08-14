@@ -8,7 +8,7 @@
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { WarmupState } from './types.ts'
+import type { MemCacheStats, WarmupState } from './types.ts'
 import { catalogModel } from './models.js'
 
 /** Per-convention task prefixes applied when enabled. */
@@ -51,6 +51,9 @@ export class EmbeddingService {
   #warmup: WarmupState = { state: 'idle', progress: 0, detail: null }
   #listeners = new Set<WarmupListener>()
   readonly #cache = new Map<string, Float32Array>()
+  readonly #cacheHits = new Map<string, { hits: number; lastAt: number }>()
+  #hits = 0
+  #misses = 0
 
   constructor(model: string, dimensions: number, cacheDir: string, useTaskPrefixes: boolean) {
     this.#model = model
@@ -86,7 +89,29 @@ export class EmbeddingService {
     this.#dimensions = dimensions
     this.#pipe = null
     this.#cache.clear()
+    this.#cacheHits.clear()
+    this.#hits = 0
+    this.#misses = 0
     this.#setWarmup({ state: 'idle', progress: 0, detail: null })
+  }
+
+  /**
+   * Embedding cache statistics with a top-hit ranking (text truncated).
+   * @param topLimit - ranking size.
+   * @returns live counters plus the ranked entries.
+   */
+  cacheStats(topLimit = 20): MemCacheStats {
+    const top = [...this.#cacheHits.entries()]
+      .map(([text, entry]) => ({ text: text.slice(0, 80), hits: entry.hits, lastAt: entry.lastAt }))
+      .sort((a, b) => b.hits - a.hits || b.lastAt - a.lastAt)
+      .slice(0, topLimit)
+    return {
+      hits: this.#hits,
+      misses: this.#misses,
+      size: this.#cache.size,
+      capacity: CACHE_LIMIT,
+      top,
+    }
   }
 
   /** Whether the active model's files exist in the local model cache. */
@@ -183,7 +208,18 @@ export class EmbeddingService {
     const kind = catalogModel(this.#model)?.taskPrefixes ?? 'nomic'
     const input = this.#useTaskPrefixes ? `${TASK_PREFIXES[kind][task]}${text}` : text
     const cached = this.#cache.get(input)
-    if (cached !== undefined) return Promise.resolve(cached)
+    if (cached !== undefined) {
+      this.#hits += 1
+      const hit = this.#cacheHits.get(input)
+      const now = Date.now()
+      if (hit === undefined) this.#cacheHits.set(input, { hits: 1, lastAt: now })
+      else {
+        hit.hits += 1
+        hit.lastAt = now
+      }
+      return Promise.resolve(cached)
+    }
+    this.#misses += 1
     return this.#pipe(input, { pooling: 'mean', normalize: true }).then((output) => {
       const vector = output.data
       if (this.#cache.size >= CACHE_LIMIT) {

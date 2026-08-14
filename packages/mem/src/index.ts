@@ -26,11 +26,14 @@ import { MEM_MODELS, catalogModel } from './models.js'
 import { MEMORY_TYPERT_HOST } from './typert.js'
 import { applyMemFold, initMemFold, memProjectionSchema } from './projection.js'
 import type {
+  MemCacheStats,
   MemConfig,
   MemConfigureRequest,
   MemConfigureResponse,
   MemForgetRequest,
   MemForgetResponse,
+  MemListAllRequest,
+  MemListAllResponse,
   MemListRequest,
   MemListResponse,
   MemModelsResponse,
@@ -478,6 +481,24 @@ export class MemService extends TypertRemoteService {
     return {
       items: this.store.list(scope, project, resolveLimit(request.limit, 20, 100)),
     }
+  }
+
+  /** Embedding cache statistics with the top-hit ranking (stats modal). */
+  @Remote('cacheStats')
+  cacheStats(): MemCacheStats {
+    return this.embedding.cacheStats()
+  }
+
+  /** Paginated all-memories listing for the stats modal. */
+  @Remote('listAll')
+  listAll(agent: Agent, request: MemListAllRequest): MemListAllResponse {
+    const scope = request.scope === undefined || request.scope === 'all' ? 'all' : resolveScope(request.scope, 'project')
+    const sort = request.sort === 'createdAtAsc' ? 'createdAtAsc' : 'createdAtDesc'
+    const page = Math.max(1, Math.floor(typeof request.page === 'number' && Number.isFinite(request.page) ? request.page : 1))
+    const pageSize = Math.max(1, Math.min(200, Math.floor(typeof request.pageSize === 'number' && Number.isFinite(request.pageSize) ? request.pageSize : 50)))
+    const project = scope === 'project' ? projectOf(agent.session) : null
+    const result = this.store.listAll(scope, project, sort, (page - 1) * pageSize, pageSize)
+    return { items: result.items, total: result.total, page, pageSize }
   }
 
   /** Delete one memory from the widget panel. */

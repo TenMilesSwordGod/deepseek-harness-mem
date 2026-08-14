@@ -215,6 +215,60 @@ export interface MemConfig {
   activityRingSize: number
 }
 
+/** One entry in the embedding cache hit ranking. */
+export interface MemCacheTopEntry {
+  /** Truncated cache key text. */
+  text: string
+  /** Cache hits since the pipeline started. */
+  hits: number
+  /** Epoch milliseconds of the last hit. */
+  lastAt: number
+}
+
+/** Embedding cache statistics for the stats modal. */
+export interface MemCacheStats {
+  /** Total cache hits. */
+  hits: number
+  /** Total cache misses (embedding runs). */
+  misses: number
+  /** Current cache entries. */
+  size: number
+  /** Cache capacity. */
+  capacity: number
+  /** Top entries by hit count, descending. */
+  top: MemCacheTopEntry[]
+}
+
+/** One row of the all-memories list. */
+export interface MemListAllItem {
+  id: string
+  content: string
+  tags: string
+  scope: MemoryScope
+  dims: number
+  createdAt: number
+}
+
+/** All-memories request: paginated, optional scope filter and date sort. */
+export interface MemListAllRequest {
+  /** 'all' | 'project' | 'global'. */
+  scope?: 'all' | MemoryScope
+  /** 'createdAtDesc' (default) or 'createdAtAsc'. */
+  sort?: 'createdAtDesc' | 'createdAtAsc'
+  /** 1-based page; default 1. */
+  page?: number
+  /** Rows per page; default 50, max 200. */
+  pageSize?: number
+}
+
+/** All-memories response. */
+export interface MemListAllResponse {
+  items: MemListAllItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 /** Resolved defaults applied over partial Config. */
 export type ResolvedMemConfig = Required<MemConfig>
 

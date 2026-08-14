@@ -6,6 +6,7 @@
  */
 
 import { DatabaseSync } from 'node:sqlite'
+import type { SQLInputValue } from 'node:sqlite'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -254,6 +255,49 @@ export class MemoryStore {
   forget(id: string): boolean {
     const result = this.#deleteId.run(id)
     return result.changes > 0
+  }
+
+  /** Paginated full listing with scope filter and date ordering. */
+  listAll(
+    scope: 'all' | MemoryScope,
+    project: string | null,
+    sort: 'createdAtDesc' | 'createdAtAsc',
+    offset: number,
+    limit: number,
+  ): { items: Array<{ id: string; content: string; tags: string; scope: MemoryScope; dims: number; createdAt: number }>; total: number } {
+    const order = sort === 'createdAtAsc' ? 'ASC' : 'DESC'
+    const where = scope === 'all'
+      ? { sql: '1 = 1', params: [] as SQLInputValue[] }
+      : scope === 'global'
+        ? { sql: 'scope = ?', params: ['global'] as SQLInputValue[] }
+        : { sql: '(scope = ? AND project = ?) OR scope = ?', params: [scope, project, 'global'] as SQLInputValue[] }
+    const total = Number((this.#db.prepare(`SELECT COUNT(*) AS n FROM memories WHERE ${where.sql}`).get(...where.params) as { n: number }).n)
+    const items = this.#db.prepare(
+      `SELECT id, content, tags, scope, dims, created_at FROM memories WHERE ${where.sql} ORDER BY created_at ${order} LIMIT ? OFFSET ?`,
+    ).all(...where.params, limit, offset) as unknown as Array<{
+      id: string
+      content: string
+      tags: string
+      scope: MemoryScope
+      dims: number
+      created_at: number
+    }>
+    return {
+      items: items.map((row) => ({ id: row.id, content: row.content, tags: row.tags, scope: row.scope, dims: row.dims, createdAt: row.created_at })),
+      total,
+    }
+  }
+
+  /** Counts by scope axis for the stats header. */
+  countsByScope(): { project: number; global: number } {
+    const rows = this.#db.prepare('SELECT scope, COUNT(*) AS n FROM memories GROUP BY scope').all() as unknown as Array<{ scope: string; n: number }>
+    let project = 0
+    let global = 0
+    for (const row of rows) {
+      if (row.scope === 'global') global = row.n
+      else project += row.n
+    }
+    return { project, global }
   }
 
   /** Recent memories of one scope axis, newest first. */

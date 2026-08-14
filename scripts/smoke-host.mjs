@@ -50,6 +50,14 @@ ctx.plugin({
 
     const models = service.models()
     console.log('7. catalog:', models.catalog.map((m) => `${m.label}(${m.dims}d,${m.cached ? 'local' : 'remote'})`).join(' | '))
+
+    // cache stats + all-memory listing (stats modal endpoints)
+    const searchAgain = await service.search(fakeAgent('/home/vncuser/workdir'), { query: 'embedding model local storage', limit: 3 })
+    const cache = service.cacheStats()
+    console.log('8. cacheStats:', JSON.stringify({ hits: cache.hits, misses: cache.misses, size: cache.size, top: cache.top.slice(0, 2).map((t) => [t.text.slice(0, 24), t.hits]) }))
+    const all = service.listAll(fakeAgent('/home/vncuser/workdir'), { scope: 'all', sort: 'createdAtDesc', page: 1, pageSize: 50 })
+    console.log('9. listAll:', JSON.stringify({ total: all.total, page: all.page, first: all.items[0]?.content.slice(0, 30), dims: all.items[0]?.dims }))
+    if (searchAgain.results.length === 0) throw new Error('repeat search unexpectedly empty')
     console.log('SMOKE OK')
     } catch (error) {
       console.error('SMOKE FAIL:', error?.stack ?? error)

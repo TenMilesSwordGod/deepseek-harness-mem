@@ -6,12 +6,17 @@
  */
 
 export type {
+  MemCacheStats,
+  MemCacheTopEntry,
   MemConfig,
   MemConfigureRequest,
   MemConfigureResponse,
   MemForgetRequest,
   MemForgetResponse,
   MemHit,
+  MemListAllItem,
+  MemListAllRequest,
+  MemListAllResponse,
   MemListRequest,
   MemListResponse,
   MemModelEntry,

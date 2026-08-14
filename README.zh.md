@@ -19,12 +19,13 @@
 - SQLite 存储（`node:sqlite`，零原生依赖），单调递增 `SCHEMA_VERSION`，自动迁移。
 - 本地嵌入（`@huggingface/transformers`，ONNX，CPU），按模型使用正确的任务前缀（nomic 用 `search_document:`/`search_query:`，e5 用 `passage:`/`query:`，MiniLM/jina 不加前缀），mean pooling + L2 归一化 + LRU 缓存。
 - 切换到不同维度的模型时，**后台自动重建全部记忆的索引**，进度实时可见，迁移完成前旧记忆不参与检索、完成后立即可搜。
-- 供组件调用的 Typert Remote：`memory/status`、`memory/models`、`memory/configure`、`memory/search`、`memory/record`、`memory/list`、`memory/forget`。
+- 供组件调用的 Typert Remote：`memory/status`、`memory/models`、`memory/configure`、`memory/search`、`memory/record`、`memory/list`、`memory/listAll`、`memory/cacheStats`、`memory/forget`。
 
 **给人用（客户端插件 `@deepseek-ai/dsh-client-ui-mem`）**
 
 - 顶部右上角胶囊按钮（挂载于 `conversation.session.header.utilities`）：状态圆点（就绪/加载中/出错）+ 记忆总数。
 - 面板：后端状态、**嵌入模型选择器**、缓存提示、语义快速搜索（带相似度分数）、手动记录、逐条删除、读写策略说明。
+- 独立的**「统计」按钮**，点击打开专属弹窗：概览卡片（记忆总数 / 缓存命中 / 命中率 / 缓存占用）、**全部记忆列表**（分页、全部/项目/全局三个筛选页签、按创建时间排序）、**嵌入缓存命中排行**（按命中次数可排序）。
 - **流畅动画**：模型预热时圆点追逐；AI 记录/搜索的瞬间胶囊脉冲 + 右上角滑入 toast（由 `tool/call` 事件的会话投影驱动）；搜索结果逐条交错入场；切换模型时缓存提示平滑过渡。全部支持 `prefers-reduced-motion` 降级。
 - 产品文案为中文（与 Harness 一致），英文兜底；样式全部使用共享 `--dsw-*` 设计令牌（明暗主题自适应）。
 

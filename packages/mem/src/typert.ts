@@ -109,6 +109,35 @@ const memListResponseSchema = z.object({
   })),
 })
 
+const memCacheStatsSchema = z.object({
+  hits: z.number(),
+  misses: z.number(),
+  size: z.number(),
+  capacity: z.number(),
+  top: z.array(z.object({ text: z.string(), hits: z.number(), lastAt: z.number() })),
+})
+
+const memListAllRequestSchema = z.object({
+  scope: z.enum(['all', 'project', 'global']).optional(),
+  sort: z.enum(['createdAtDesc', 'createdAtAsc']).optional(),
+  page: z.number().optional(),
+  pageSize: z.number().optional(),
+})
+
+const memListAllResponseSchema = z.object({
+  items: z.array(z.object({
+    id: z.string(),
+    content: z.string(),
+    tags: z.string(),
+    scope: z.enum(['project', 'global']),
+    dims: z.number(),
+    createdAt: z.number(),
+  })),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+})
+
 const memForgetRequestSchema = z.object({ id: z.string() })
 
 const memForgetResponseSchema = z.object({
@@ -205,6 +234,28 @@ const invocations: readonly InvocationDescriptor[] = [
       jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemListRequest', memListRequestSchema),
     ],
     result: codec('@deepseek-ai/dsh-mem/client#MemListResponse', memListResponseSchema),
+  },
+  {
+    id: '@deepseek-ai/dsh-mem#memory/cacheStats',
+    service: 'memory',
+    namespace: 'memory',
+    method: 'cacheStats',
+    invocation: { kind: 'direct' },
+    parameters: [],
+    result: codec('@deepseek-ai/dsh-mem/client#MemCacheStats', memCacheStatsSchema),
+  },
+  {
+    id: '@deepseek-ai/dsh-mem#memory/listAll',
+    service: 'memory',
+    namespace: 'memory',
+    method: 'listAll',
+    invocation: { kind: 'direct' },
+    scope: { context: 'agent', wire: 'agentId' },
+    parameters: [
+      agentParam,
+      jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemListAllRequest', memListAllRequestSchema),
+    ],
+    result: codec('@deepseek-ai/dsh-mem/client#MemListAllResponse', memListAllResponseSchema),
   },
   {
     id: '@deepseek-ai/dsh-mem#memory/forget',

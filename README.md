@@ -19,12 +19,13 @@ It gives the coding agent a durable, SQLite-backed memory with local CPU embeddi
 - SQLite storage on `node:sqlite` (zero native dependencies), with a monotonic `SCHEMA_VERSION` and automatic migration.
 - Local embeddings via `@huggingface/transformers` (ONNX, CPU), with per-model task prefixes (`search_document:`/`search_query:` for nomic, `passage:`/`query:` for e5, none for MiniLM/jina), mean pooling, L2 normalization, and an LRU cache.
 - Automatic **background re-embedding** when you switch to a model with different dimensions — old memories stay searchable once migrated, with live progress.
-- Typert Remote API for the widget: `memory/status`, `memory/models`, `memory/configure`, `memory/search`, `memory/record`, `memory/list`, `memory/forget`.
+- Typert Remote API for the widget: `memory/status`, `memory/models`, `memory/configure`, `memory/search`, `memory/record`, `memory/list`, `memory/listAll`, `memory/cacheStats`, `memory/forget`.
 
 **For the human (client plugin `@deepseek-ai/dsh-client-ui-mem`)**
 
 - A pill button in the top-right header (`conversation.session.header.utilities`): state dot (ready / warming / error) + memory count.
 - Panel: backend status, **embedding model selector**, cache tip, quick semantic search with similarity scores, manual record, per-item delete, and a strategy hint.
+- A separate **统计 (stats) button** that opens its own modal: overview cards (total / cache hits / hit rate / cache size), the **full memory list** (paginated, scope tabs 全部/项目/全局, date-sortable), and the **embedding cache hit ranking** (sortable by hit count).
 - **Fluent animations**: the dot chases while the model warms up, the chip pulses and a toast slides in the moment the AI records or searches (driven by a session projection over `tool/call` events), results stagger in, the cache tip crossfades on model switch. All animations respect `prefers-reduced-motion`.
 - UI copy is Chinese (matching the harness), with English fallback via the locale plugin; all styles use the shared `--dsw-*` design tokens (light + dark).
 

@@ -10,10 +10,13 @@ import { z } from 'zod'
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
+  MemCacheStats,
   MemConfigureRequest,
   MemConfigureResponse,
   MemForgetRequest,
   MemForgetResponse,
+  MemListAllRequest,
+  MemListAllResponse,
   MemListRequest,
   MemListResponse,
   MemModelsResponse,
@@ -115,6 +118,35 @@ const memListResponseSchema = z.object({
     scope: z.enum(['project', 'global']),
     createdAt: z.number(),
   })),
+})
+
+const memCacheStatsSchema = z.object({
+  hits: z.number(),
+  misses: z.number(),
+  size: z.number(),
+  capacity: z.number(),
+  top: z.array(z.object({ text: z.string(), hits: z.number(), lastAt: z.number() })),
+})
+
+const memListAllRequestSchema = z.object({
+  scope: z.enum(['all', 'project', 'global']).optional(),
+  sort: z.enum(['createdAtDesc', 'createdAtAsc']).optional(),
+  page: z.number().optional(),
+  pageSize: z.number().optional(),
+})
+
+const memListAllResponseSchema = z.object({
+  items: z.array(z.object({
+    id: z.string(),
+    content: z.string(),
+    tags: z.string(),
+    scope: z.enum(['project', 'global']),
+    dims: z.number(),
+    createdAt: z.number(),
+  })),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
 })
 
 const memForgetRequestSchema = z.object({ id: z.string() })
@@ -222,6 +254,28 @@ export const memoryRemote: TypertRemoteContribution = {
       result: codec('@deepseek-ai/dsh-mem/client#MemConfigureResponse', memConfigureResponseSchema),
     },
     {
+      id: '@deepseek-ai/dsh-mem#memory/cacheStats',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'cacheStats',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      result: codec('@deepseek-ai/dsh-mem/client#MemCacheStats', memCacheStatsSchema),
+    },
+    {
+      id: '@deepseek-ai/dsh-mem#memory/listAll',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'listAll',
+      invocation: { kind: 'direct' },
+      scope: { context: 'agent', wire: 'agentId' },
+      parameters: [
+        sessionParam,
+        jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemListAllRequest', memListAllRequestSchema),
+      ],
+      result: codec('@deepseek-ai/dsh-mem/client#MemListAllResponse', memListAllResponseSchema),
+    },
+    {
       id: '@deepseek-ai/dsh-mem#memory/forget',
       service: 'memory',
       namespace: 'memory',
@@ -240,6 +294,8 @@ export interface MemoryRemoteNamespace {
   status(): Promise<RemoteResult<MemStatus>>
   models(): Promise<RemoteResult<MemModelsResponse>>
   configure(request: MemConfigureRequest): Promise<RemoteResult<MemConfigureResponse>>
+  cacheStats(): Promise<RemoteResult<MemCacheStats>>
+  listAll(sessionId: SessionId, request: MemListAllRequest): Promise<RemoteResult<MemListAllResponse>>
   search(sessionId: SessionId, request: MemSearchRequest): Promise<RemoteResult<MemSearchResponse>>
   record(sessionId: SessionId, request: MemRecordRequest): Promise<RemoteResult<MemRecordResponse>>
   list(sessionId: SessionId, request: MemListRequest): Promise<RemoteResult<MemListResponse>>

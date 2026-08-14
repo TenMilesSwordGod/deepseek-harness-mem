@@ -14,7 +14,7 @@ It gives the coding agent a durable, SQLite-backed memory with local CPU embeddi
 
 **For the agent (host plugin `@deepseek-ai/dsh-simplemem`)**
 
-- `mem_record` / `mem_search` / `mem_forget` tools with deduplication and `project` / `global` scoping (project = the session's working-directory tree, mirroring opencode-mem's per-project shards).
+- `simplemem_record` / `simplemem_search` / `simplemem_forget` tools with deduplication and `project` / `global` scoping (project = the session's working-directory tree, mirroring opencode-mem's per-project shards).
 - A system-prompt section that tells the model **when to read and when to write**: search at task start and before answering questions about past work; record as soon as a durable fact, preference, or decision settles; never record transient chat details.
 - SQLite storage on `node:sqlite` (zero native dependencies), with a monotonic `SCHEMA_VERSION` and automatic migration.
 - Local embeddings via `@huggingface/transformers` (ONNX, CPU), with per-model task prefixes (`search_document:`/`search_query:` for nomic, `passage:`/`query:` for e5, none for MiniLM/jina), mean pooling, L2 normalization, and an LRU cache.
@@ -150,9 +150,9 @@ All keys live under the `mem` row's `config` (schemastery-validated); `embedding
 
 | Tool | Arguments | Behavior |
 |---|---|---|
-| `mem_record` | `content`, `tags?`, `scope?` | Embed + store; deduplicates against near twins (`status: "deduplicated"` with similarity) |
-| `mem_search` | `query`, `limit?`, `scope?`, `minSimilarity?` | Ranked cosine hits with similarity scores |
-| `mem_forget` | `memory_id` | Delete one memory by id |
+| `simplemem_record` | `content`, `tags?`, `scope?` | Embed + store; deduplicates against near twins (`status: "deduplicated"` with similarity) |
+| `simplemem_search` | `query`, `limit?`, `scope?`, `minSimilarity?` | Ranked cosine hits with similarity scores |
+| `simplemem_forget` | `memory_id` | Delete one memory by id |
 
 The system-prompt guidance shipped with the plugin:
 
@@ -171,7 +171,7 @@ The system-prompt guidance shipped with the plugin:
 │  MemService (Typert Remote service, key `memory`)                 │
 │   ├─ MemoryStore     node:sqlite · WAL · schema v2 (dims column)  │
 │   ├─ EmbeddingService transformers.js · per-model task prefixes   │
-│   ├─ tools           mem_record / mem_search / mem_forget         │
+│   ├─ tools           simplemem_record / simplemem_search / simplemem_forget         │
 │   ├─ 'memory' session projection  (fold over tool/call events)    │
 │   ├─ strict Typert host face  (status/models/configure/...)       │
 │   └─ background re-embed task on model/dimension switch           │
@@ -211,7 +211,7 @@ Once installed, both halves hot-reload:
 
 - Vector search is brute-force cosine in JS (no ANN index). Fine for the target scale (thousands of memories); revisit with sqlite-vec for large corpora.
 - `node:sqlite` is still marked experimental in Node 22 (a startup warning is printed once); the API used is stable in practice.
-- No automatic capture from conversation turns (unlike opencode-mem's auto-capture) — the agent records through `mem_record` and the panel, guided by the prompt section.
+- No automatic capture from conversation turns (unlike opencode-mem's auto-capture) — the agent records through `simplemem_record` and the panel, guided by the prompt section.
 - First use of a non-cached model requires a network download; the two smallest models are usually pre-provisioned.
 - Tool descriptions are English (model-facing); product/UI copy is Chinese (harness convention).
 

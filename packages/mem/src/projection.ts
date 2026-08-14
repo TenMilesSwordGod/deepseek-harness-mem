@@ -26,9 +26,9 @@ export const memProjectionSchema = zod.object({
 
 /** Map one tool name to its activity kind; null for foreign tools. */
 function kindOf(toolName: string): MemoryActivity['kind'] | null {
-  if (toolName === 'mem_record') return 'record'
-  if (toolName === 'mem_search') return 'search'
-  if (toolName === 'mem_forget') return 'forget'
+  if (toolName === 'simplemem_record') return 'record'
+  if (toolName === 'simplemem_search') return 'search'
+  if (toolName === 'simplemem_forget') return 'forget'
   return null
 }
 

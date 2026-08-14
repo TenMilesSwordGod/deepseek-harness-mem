@@ -137,9 +137,9 @@ ctx.plugin({
     // (the same validation the registry runs; catches INVALID_TOOL_OUTPUT bugs)
     {
       const exec = { agent: fakeAgent('/home/vncuser/workdir') }
-      const recordTool = capturedTools.find((tool) => tool.name === 'mem_record')
-      const searchTool = capturedTools.find((tool) => tool.name === 'mem_search')
-      const forgetTool = capturedTools.find((tool) => tool.name === 'mem_forget')
+      const recordTool = capturedTools.find((tool) => tool.name === 'simplemem_record')
+      const searchTool = capturedTools.find((tool) => tool.name === 'simplemem_search')
+      const forgetTool = capturedTools.find((tool) => tool.name === 'simplemem_forget')
       if (recordTool === undefined || searchTool === undefined || forgetTool === undefined) throw new Error('mem tools not registered')
       const validate = (tool, value) => {
         const violations = validateJsonSchemaValue(tool.output.schema, value)

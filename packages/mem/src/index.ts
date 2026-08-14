@@ -90,20 +90,20 @@ const MEMORY_GUIDANCE = [
   'You have persistent semantic memory through three tools. Read and write it at the right moments.',
   'You also receive a "Relevant memories" section in this prompt, pre-retrieved from persistent memory for the current request — treat it as background knowledge and use it without mentioning the memory system.',
   '',
-  'WHEN TO READ (mem_search):',
+  'WHEN TO READ (simplemem_search):',
   '- At the start of a task or session, search for related past work, conventions, and decisions before acting.',
   '- Before answering questions about past work, preferences, or "what did we decide" — search with specific technical keywords.',
   '- Before reworking code or files you may have already worked on; check memory first instead of re-deriving.',
   '',
-  'WHEN TO WRITE (mem_record):',
+  'WHEN TO WRITE (simplemem_record):',
   '- As soon as a durable fact settles: a user preference, a design decision, a non-obvious fix, a convention.',
   '- After completing a piece of work whose "why" a future session would otherwise have to rediscover.',
   '- Record concisely and self-contained; prefer stable facts over one-off details.',
   '',
-  'WHEN TO FORGET (mem_forget): when a stored memory is outdated or wrong, remove it by its id.',
+  'WHEN TO FORGET (simplemem_forget): when a stored memory is outdated or wrong, remove it by its id.',
   '',
   'Do NOT record every interaction or transient conversation details — only what would help a future session.',
-  'Memories are scoped: "project" stores into the current working-directory tree (the default), "global" applies everywhere. Prefer project scope; use global only for cross-project user preferences.',
+  'Memories are scoped: "project" stores into the current working-directory tree (the default), "global" applies everywhere. Prefer project scope; use global only for cross-project user preferences. Use simplemem_record / simplemem_search / simplemem_forget for explicit reads and writes.',
 ].join('\n')
 
 /** Tool-pair presentation: a generic card titled in the product language. */
@@ -282,7 +282,7 @@ export class MemService extends TypertRemoteService {
     const tools = ctx.tools
     const service = this
     tools.register(defineTool({
-      name: 'mem_record',
+      name: 'simplemem_record',
       description: 'Record a durable semantic memory for this workspace. Use for stable facts, decisions, conventions, or preferences worth reusing in future sessions. The system deduplicates near-identical memories automatically.',
       parameters: {
         content: {
@@ -335,7 +335,7 @@ export class MemService extends TypertRemoteService {
       presentCall: (args) => present('记忆 · 记录', args.content),
     }))
     tools.register(defineTool({
-      name: 'mem_search',
+      name: 'simplemem_search',
       description: 'Search persistent memories by semantic similarity. Use before answering questions about past work, conventions, or decisions. Returns ranked hits with similarity scores.',
       parameters: {
         query: {
@@ -408,8 +408,8 @@ export class MemService extends TypertRemoteService {
       presentCall: (args) => present('记忆 · 搜索', args.query),
     }))
     tools.register(defineTool({
-      name: 'mem_forget',
-      description: 'Delete one memory by its id (from mem_search results or mem_record). Use when a stored memory is outdated or wrong.',
+      name: 'simplemem_forget',
+      description: 'Delete one memory by its id (from simplemem_search results or simplemem_record). Use when a stored memory is outdated or wrong.',
       parameters: {
         memory_id: {
           type: 'string',

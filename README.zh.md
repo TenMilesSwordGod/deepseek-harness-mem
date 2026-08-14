@@ -14,7 +14,7 @@
 
 **给 Agent 用（宿主插件 `@deepseek-ai/dsh-simplemem`）**
 
-- `mem_record` / `mem_search` / `mem_forget` 三个工具，带去重和 `project` / `global` 作用域（project = 会话所在工作目录树，对应 opencode-mem 的按项目分片）。
+- `simplemem_record` / `simplemem_search` / `simplemem_forget` 三个工具，带去重和 `project` / `global` 作用域（project = 会话所在工作目录树，对应 opencode-mem 的按项目分片）。
 - 系统提示引导，明确告诉模型**何时读、何时写**：任务开始时先搜；回答「过去的做法 / 之前的决定」之前先搜；持久事实（偏好、决策、非显而易见的修复、约定）一经落定就记录；绝不记录临时对话细节。
 - SQLite 存储（`node:sqlite`，零原生依赖），单调递增 `SCHEMA_VERSION`，自动迁移。
 - 本地嵌入（`@huggingface/transformers`，ONNX，CPU），按模型使用正确的任务前缀（nomic 用 `search_document:`/`search_query:`，e5 用 `passage:`/`query:`，MiniLM/jina 不加前缀），mean pooling + L2 归一化 + LRU 缓存。
@@ -148,9 +148,9 @@ curl -L -o "<dsh-home>/storages/mem-models/Xenova/nomic-embed-text-v1/onnx/model
 
 | 工具 | 参数 | 行为 |
 |---|---|---|
-| `mem_record` | `content`、`tags?`、`scope?` | 嵌入并存储；与近似重复项去重（返回 `status: "deduplicated"` 及相似度） |
-| `mem_search` | `query`、`limit?`、`scope?`、`minSimilarity?` | 按余弦相似度排序返回命中 |
-| `mem_forget` | `memory_id` | 按 id 删除一条记忆 |
+| `simplemem_record` | `content`、`tags?`、`scope?` | 嵌入并存储；与近似重复项去重（返回 `status: "deduplicated"` 及相似度） |
+| `simplemem_search` | `query`、`limit?`、`scope?`、`minSimilarity?` | 按余弦相似度排序返回命中 |
+| `simplemem_forget` | `memory_id` | 按 id 删除一条记忆 |
 
 插件自带的系统提示引导：
 
@@ -169,7 +169,7 @@ curl -L -o "<dsh-home>/storages/mem-models/Xenova/nomic-embed-text-v1/onnx/model
 │  MemService（Typert Remote 服务，键 `memory`）                    │
 │   ├─ MemoryStore     node:sqlite · WAL · schema v2（dims 列）     │
 │   ├─ EmbeddingService transformers.js · 按模型任务前缀            │
-│   ├─ tools           mem_record / mem_search / mem_forget         │
+│   ├─ tools           simplemem_record / simplemem_search / simplemem_forget         │
 │   ├─ 'memory' 会话投影（对 tool/call 事件折叠）                    │
 │   ├─ 严格 Typert 宿主 face（status/models/configure/...）         │
 │   └─ 模型/维度切换时的后台重建索引任务                             │
@@ -209,7 +209,7 @@ curl -L -o "<dsh-home>/storages/mem-models/Xenova/nomic-embed-text-v1/onnx/model
 
 - 向量检索是 JS 暴力余弦（无 ANN 索引）。目标规模（数千条）足够；量级更大时再考虑 sqlite-vec。
 - `node:sqlite` 在 Node 22 仍是实验性标记（启动时打印一次告警）；所用 API 实际已稳定。
-- 没有 opencode-mem 那样的对话自动捕捉 —— Agent 通过 `mem_record` 与面板按引导记录。
+- 没有 opencode-mem 那样的对话自动捕捉 —— Agent 通过 `simplemem_record` 与面板按引导记录。
 - 首次使用未缓存的模型需要联网下载；最小的两个模型通常已预置。
 - 工具描述为英文（面向模型）；产品/UI 文案为中文（Harness 惯例）。
 

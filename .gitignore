@@ -1,0 +1,14 @@
+# Build artifacts & local state
+node_modules/
+.shots/
+.buildtest/
+deploy/
+
+# Test databases
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Editor/OS
+.DS_Store
+*.log

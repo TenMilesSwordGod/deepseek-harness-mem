@@ -1,0 +1,253 @@
+/**
+ * Hand-written Typert Remote contribution for the memory namespace: the same
+ * face model the repo generator emits, authored here because this plugin
+ * lives outside the monorepo build. Mirrors @deepseek-ai/dsh-mem's Remote
+ * methods (status / search / record / list / forget).
+ * @module @deepseek-ai/dsh-client-ui-mem
+ */
+
+import { z } from 'zod'
+import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type {
+  MemConfigureRequest,
+  MemConfigureResponse,
+  MemForgetRequest,
+  MemForgetResponse,
+  MemListRequest,
+  MemListResponse,
+  MemModelsResponse,
+  MemRecordRequest,
+  MemRecordResponse,
+  MemSearchRequest,
+  MemSearchResponse,
+  MemStatus,
+} from '@deepseek-ai/dsh-mem/client'
+
+const sessionIdCodec = { mode: 'strict' as const, typeSymbol: '@deepseek-ai/dsh-session/types#SessionId', schema: z.intersection(z.string(), z.unknown()) }
+
+const memStatusSchema = z.object({
+  ready: z.boolean(),
+  model: z.string(),
+  dimensions: z.number(),
+  dbPath: z.string(),
+  count: z.number(),
+  staleCount: z.number(),
+  lastActivity: z.union([
+    z.object({ kind: z.enum(['record', 'search', 'forget']), text: z.string(), at: z.number() }),
+    z.null(),
+  ]),
+  warmup: z.object({
+    state: z.enum(['idle', 'downloading', 'ready', 'error']),
+    progress: z.number(),
+    detail: z.union([z.string(), z.null()]),
+  }),
+  reembed: z.union([
+    z.object({ state: z.enum(['running', 'done']), done: z.number(), total: z.number() }),
+    z.null(),
+  ]),
+})
+
+const memModelsResponseSchema = z.object({
+  catalog: z.array(z.object({
+    id: z.string(),
+    dims: z.number(),
+    label: z.string(),
+    desc: z.string(),
+    sizeMb: z.number(),
+    multilingual: z.boolean(),
+    cached: z.boolean(),
+  })),
+  current: z.string(),
+})
+
+const memConfigureRequestSchema = z.object({ model: z.string() })
+
+const memConfigureResponseSchema = z.object({
+  model: z.string(),
+  dimensions: z.number(),
+  reembedding: z.boolean(),
+})
+
+const memSearchRequestSchema = z.object({
+  query: z.string(),
+  limit: z.number().optional(),
+  scope: z.enum(['project', 'global']).optional(),
+  minSimilarity: z.number().optional(),
+})
+
+const memSearchResponseSchema = z.object({
+  results: z.array(z.object({
+    id: z.string(),
+    content: z.string(),
+    tags: z.string(),
+    scope: z.enum(['project', 'global']),
+    similarity: z.number(),
+    createdAt: z.number(),
+  })),
+  scope: z.enum(['project', 'global']),
+  project: z.union([z.string(), z.null()]),
+})
+
+const memRecordRequestSchema = z.object({
+  content: z.string(),
+  tags: z.string().optional(),
+  scope: z.enum(['project', 'global']).optional(),
+})
+
+const memRecordResponseSchema = z.object({
+  status: z.enum(['recorded', 'deduplicated']),
+  id: z.string(),
+  similarity: z.number().optional(),
+  count: z.number(),
+})
+
+const memListRequestSchema = z.object({
+  limit: z.number().optional(),
+  scope: z.enum(['project', 'global']).optional(),
+})
+
+const memListResponseSchema = z.object({
+  items: z.array(z.object({
+    id: z.string(),
+    content: z.string(),
+    tags: z.string(),
+    scope: z.enum(['project', 'global']),
+    createdAt: z.number(),
+  })),
+})
+
+const memForgetRequestSchema = z.object({ id: z.string() })
+
+const memForgetResponseSchema = z.object({
+  forgotten: z.boolean(),
+  count: z.number(),
+})
+
+const codec = (typeSymbol: string, schema: z.ZodType): { mode: 'strict'; typeSymbol: string; schema: z.ZodType } => ({
+  mode: 'strict',
+  typeSymbol,
+  schema,
+})
+
+const jsonParam = (name: string, wire: string, typeSymbol: string, schema: z.ZodType, acceptsUndefined = false) => ({
+  name,
+  wire,
+  source: 'json' as const,
+  codec: codec(typeSymbol, schema),
+  ...(acceptsUndefined ? { acceptsUndefined: true as const } : {}),
+})
+
+/** Agent lookup parameter: the client binder supplies the wire identity
+ *  (agent and session share one id; the strict host registry requires the
+ *  lookup key to equal the scope context). */
+const sessionParam = {
+  name: 'agent',
+  wire: 'agentId',
+  source: 'lookup' as const,
+  lookup: 'agent',
+  codec: sessionIdCodec,
+}
+
+/** The memory namespace consumer-side contract, mounted by this plugin. */
+export const memoryRemote: TypertRemoteContribution = {
+  package: '@deepseek-ai/dsh-mem',
+  descriptors: [
+    {
+      id: '@deepseek-ai/dsh-mem#memory/status',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'status',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      result: codec('@deepseek-ai/dsh-mem/client#MemStatus', memStatusSchema),
+    },
+    {
+      id: '@deepseek-ai/dsh-mem#memory/search',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'search',
+      invocation: { kind: 'direct' },
+      scope: { context: 'agent', wire: 'agentId' },
+      parameters: [
+        sessionParam,
+        jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemSearchRequest', memSearchRequestSchema),
+      ],
+      result: codec('@deepseek-ai/dsh-mem/client#MemSearchResponse', memSearchResponseSchema),
+    },
+    {
+      id: '@deepseek-ai/dsh-mem#memory/record',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'record',
+      invocation: { kind: 'direct' },
+      scope: { context: 'agent', wire: 'agentId' },
+      parameters: [
+        sessionParam,
+        jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemRecordRequest', memRecordRequestSchema),
+      ],
+      result: codec('@deepseek-ai/dsh-mem/client#MemRecordResponse', memRecordResponseSchema),
+    },
+    {
+      id: '@deepseek-ai/dsh-mem#memory/list',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'list',
+      invocation: { kind: 'direct' },
+      scope: { context: 'agent', wire: 'agentId' },
+      parameters: [
+        sessionParam,
+        jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemListRequest', memListRequestSchema),
+      ],
+      result: codec('@deepseek-ai/dsh-mem/client#MemListResponse', memListResponseSchema),
+    },
+    {
+      id: '@deepseek-ai/dsh-mem#memory/models',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'models',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      result: codec('@deepseek-ai/dsh-mem/client#MemModelsResponse', memModelsResponseSchema),
+    },
+    {
+      id: '@deepseek-ai/dsh-mem#memory/configure',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'configure',
+      invocation: { kind: 'direct' },
+      parameters: [
+        jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemConfigureRequest', memConfigureRequestSchema),
+      ],
+      result: codec('@deepseek-ai/dsh-mem/client#MemConfigureResponse', memConfigureResponseSchema),
+    },
+    {
+      id: '@deepseek-ai/dsh-mem#memory/forget',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'forget',
+      invocation: { kind: 'direct' },
+      parameters: [
+        jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemForgetRequest', memForgetRequestSchema),
+      ],
+      result: codec('@deepseek-ai/dsh-mem/client#MemForgetResponse', memForgetResponseSchema),
+    },
+  ],
+}
+
+/** Namespace surface the widget reads through the mounted Remote service. */
+export interface MemoryRemoteNamespace {
+  status(): Promise<RemoteResult<MemStatus>>
+  models(): Promise<RemoteResult<MemModelsResponse>>
+  configure(request: MemConfigureRequest): Promise<RemoteResult<MemConfigureResponse>>
+  search(sessionId: SessionId, request: MemSearchRequest): Promise<RemoteResult<MemSearchResponse>>
+  record(sessionId: SessionId, request: MemRecordRequest): Promise<RemoteResult<MemRecordResponse>>
+  list(sessionId: SessionId, request: MemListRequest): Promise<RemoteResult<MemListResponse>>
+  forget(request: MemForgetRequest): Promise<RemoteResult<MemForgetResponse>>
+}
+
+declare module '@deepseek-ai/dsh-typert-protocol' {
+  interface TypertRemoteNamespaceMap {
+    memory: MemoryRemoteNamespace
+  }
+}

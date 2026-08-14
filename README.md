@@ -55,14 +55,15 @@ cd deepseek-harness-mem
 ./scripts/quick-deploy.sh                 # or: ./scripts/quick-deploy.sh ~/.dsh/profiles/web
 ```
 
-The script (idempotent — safe to re-run) adds both packages to the profile's
+The script (idempotent — safe to re-run) builds the TypeScript sources when
+the `lib/` artifacts are missing, adds both packages to the profile's
 `package.json`, registers the two rows in `cordis.patch.yml`, and runs
 `pnpm install` (CUDA binaries skipped). Then **restart `dsh web` once**, open
 the GUI, refresh, and click **记忆** in the top-right corner. No further
 restarts are ever needed.
 
-Pre-built `lib/` artifacts are committed, so no build step is required on
-your machine.
+The repository ships TypeScript sources only (no committed build artifacts);
+the first script run downloads the dev dependencies and builds.
 
 ---
 
@@ -70,12 +71,12 @@ your machine.
 
 Requirements: Node ≥ 22.5 (uses `node:sqlite`), a DeepSeek Harness profile (this plugin was built against `@deepseek-ai/dsh-*` `0.1.0-rc.6`), pnpm.
 
-1. Build both packages:
+1. Install dev dependencies and build both packages from source (or just
+   `pnpm install && pnpm build` at the repo root):
 
    ```sh
    pnpm install
-   pnpm -C packages/mem build            # tsc -> lib/
-   node packages/client/ui-mem/scripts/build-client.mjs
+   pnpm build                            # tsc -> lib/ + client bundle
    ```
 
 2. Add both packages to your profile's `package.json` dependencies (for the default web profile:

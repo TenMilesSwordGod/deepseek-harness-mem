@@ -1,5 +1,0 @@
-function apply() {
-}
-export {
-  apply
-};

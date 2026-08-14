@@ -26,5 +26,11 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "@deepseek-ai/dsh-typert-registry": "^0.1.0-rc.6"
+  },
+  "scripts": {
+    "build": "tsc -p packages/mem/tsconfig.json && node packages/client/ui-mem/scripts/build-client.mjs",
+    "typecheck": "tsc -p packages/mem/tsconfig.json && tsc -p packages/client/ui-mem/tsconfig.json",
+    "test": "node scripts/smoke-host.mjs",
+    "test:typecheck": "tsc -p packages/mem/tsconfig.json && tsc -p packages/client/ui-mem/tsconfig.json"
   }
 }

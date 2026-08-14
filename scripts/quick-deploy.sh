@@ -5,9 +5,10 @@
 #   ./scripts/quick-deploy.sh [profile-dir]     # default: ~/.dsh/profiles/web
 #
 # What it does (idempotent — safe to re-run):
-#   1. adds both packages to the profile's package.json dependencies (file:)
-#   2. registers the `mem` + `ui-mem` rows in the profile's cordis.patch.yml
-#   3. runs pnpm install (CUDA binaries skipped; they are unused)
+#   1. builds the TypeScript sources when lib/ artifacts are missing
+#   2. adds both packages to the profile's package.json dependencies (file:)
+#   3. registers the `mem` + `ui-mem` rows in the profile's cordis.patch.yml
+#   4. runs pnpm install (CUDA binaries skipped; they are unused)
 #
 # You still need to restart `dsh web` ONCE after the first deploy, then
 # refresh the GUI and click 记忆 in the top-right corner. No further
@@ -29,6 +30,17 @@ UI_PKG="file:$REPO_DIR/packages/client/ui-mem"
 echo "==> profile:  $PROFILE_DIR"
 echo "==> packages: $MEM_PKG"
 echo "==>           $UI_PKG"
+
+# 0. build from TypeScript when artifacts are missing (repo ships sources only)
+if [[ ! -f "$REPO_DIR/packages/mem/lib/index.js" || ! -f "$REPO_DIR/packages/client/ui-mem/lib/client.js" ]]; then
+  echo "==> building from TypeScript sources (first run downloads dev dependencies)..."
+  if [[ ! -d "$REPO_DIR/node_modules" ]]; then
+    (cd "$REPO_DIR" && corepack pnpm install)
+  fi
+  (cd "$REPO_DIR" && ./node_modules/.bin/tsc -p packages/mem/tsconfig.json && node packages/client/ui-mem/scripts/build-client.mjs)
+else
+  echo "==> lib/ artifacts present, skipping build"
+fi
 
 # 1. package.json dependencies (JSON edit via node)
 node - "$PROFILE_DIR/package.json" "$MEM_PKG" "$UI_PKG" <<'NODE'

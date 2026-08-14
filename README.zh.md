@@ -55,12 +55,13 @@ cd deepseek-harness-mem
 ./scripts/quick-deploy.sh                 # 或：./scripts/quick-deploy.sh ~/.dsh/profiles/web
 ```
 
-脚本（幂等，可重复执行）会：把两个包写进 profile 的 `package.json` 依赖、在
-`cordis.patch.yml` 里注册 `mem` 与 `ui-mem` 两行、执行 `pnpm install`
-（跳过无用的 CUDA 二进制）。之后**重启一次 `dsh web`**，打开界面刷新，
-点击右上角「记忆」即可。此后再也不需要任何重启。
+脚本（幂等，可重复执行）会：在缺少 `lib/` 构建产物时**自动从 TypeScript
+源码构建**（首次会下载开发依赖）、把两个包写进 profile 的 `package.json`
+依赖、在 `cordis.patch.yml` 里注册 `mem` 与 `ui-mem` 两行、执行 `pnpm
+install`（跳过无用的 CUDA 二进制）。之后**重启一次 `dsh web`**，打开界面
+刷新，点击右上角「记忆」即可。此后再也不需要任何重启。
 
-仓库已附带构建产物 `lib/`，你的机器上无需构建步骤。
+仓库只含 TypeScript 源码（不提交构建产物）。
 
 ---
 
@@ -68,12 +69,12 @@ cd deepseek-harness-mem
 
 要求：Node ≥ 22.5（依赖 `node:sqlite`）、一个 DeepSeek Harness profile（本插件基于 `@deepseek-ai/dsh-*` `0.1.0-rc.6` 构建）、pnpm。
 
-1. 构建两个包（仓库已附带构建产物，亦可直接使用 `lib/` 跳过此步）：
+1. 安装开发依赖并从源码构建两个包（或在仓库根目录 `pnpm install && pnpm
+   build`）：
 
    ```sh
    pnpm install
-   pnpm -C packages/mem build            # tsc -> lib/
-   node packages/client/ui-mem/scripts/build-client.mjs
+   pnpm build                            # tsc -> lib/ + 客户端 bundle
    ```
 
 2. 把两个包加进 profile 的 `package.json` 依赖（默认 Web profile 即

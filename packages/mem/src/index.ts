@@ -45,6 +45,7 @@ import type {
   MemSearchRequest,
   MemSearchResponse,
   MemStatus,
+  MemWarmupResponse,
   MemoryActivity,
   MemoryScope,
   ReembedState,
@@ -483,6 +484,13 @@ export class MemService extends TypertRemoteService {
     return {
       items: this.store.list(scope, project, resolveLimit(request.limit, 20, 100)),
     }
+  }
+
+  /** Trigger embedding warmup explicitly (panel open), with the outcome. */
+  @Remote('warmup')
+  async warmup(): Promise<MemWarmupResponse> {
+    await this.embedding.warmup()
+    return { ready: this.embedding.ready }
   }
 
   /** Enable or disable one memory from the stats modal. */

@@ -265,6 +265,12 @@ export interface MemSetEnabledResponse {
   updated: boolean
 }
 
+/** warmup() Remote result. */
+export interface MemWarmupResponse {
+  /** True when the embedding pipeline is warm. */
+  ready: boolean
+}
+
 /** All-memories request: paginated, optional scope filter and date sort. */
 export interface MemListAllRequest {
   /** 'all' | 'project' | 'global'. */

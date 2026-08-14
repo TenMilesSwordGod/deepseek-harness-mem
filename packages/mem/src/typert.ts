@@ -143,6 +143,8 @@ const memSetEnabledRequestSchema = z.object({ id: z.string(), enabled: z.boolean
 
 const memSetEnabledResponseSchema = z.object({ id: z.string(), enabled: z.boolean(), updated: z.boolean() })
 
+const memWarmupResponseSchema = z.object({ ready: z.boolean() })
+
 const memForgetRequestSchema = z.object({ id: z.string() })
 
 const memForgetResponseSchema = z.object({
@@ -239,6 +241,15 @@ const invocations: readonly InvocationDescriptor[] = [
       jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemListRequest', memListRequestSchema),
     ],
     result: codec('@deepseek-ai/dsh-mem/client#MemListResponse', memListResponseSchema),
+  },
+  {
+    id: '@deepseek-ai/dsh-mem#memory/warmup',
+    service: 'memory',
+    namespace: 'memory',
+    method: 'warmup',
+    invocation: { kind: 'direct' },
+    parameters: [],
+    result: codec('@deepseek-ai/dsh-mem/client#MemWarmupResponse', memWarmupResponseSchema),
   },
   {
     id: '@deepseek-ai/dsh-mem#memory/setEnabled',

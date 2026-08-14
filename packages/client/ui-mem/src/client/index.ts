@@ -67,6 +67,7 @@ export async function apply(ctx: ClientContext): Promise<void> {
       const memory = ctx.get('remote.memory') as MemoryRemoteNamespace
       return {
         status: () => memory.status(),
+        warmup: () => memory.warmup(),
         models: () => memory.models(),
         configure: (model) => memory.configure({ model }),
         cacheStats: () => memory.cacheStats(),

@@ -27,6 +27,7 @@ import type {
   MemSetEnabledRequest,
   MemSetEnabledResponse,
   MemStatus,
+  MemWarmupResponse,
 } from '@deepseek-ai/dsh-mem/client'
 
 const sessionIdCodec = { mode: 'strict' as const, typeSymbol: '@deepseek-ai/dsh-session/types#SessionId', schema: z.intersection(z.string(), z.unknown()) }
@@ -156,6 +157,8 @@ const memSetEnabledRequestSchema = z.object({ id: z.string(), enabled: z.boolean
 
 const memSetEnabledResponseSchema = z.object({ id: z.string(), enabled: z.boolean(), updated: z.boolean() })
 
+const memWarmupResponseSchema = z.object({ ready: z.boolean() })
+
 const memForgetRequestSchema = z.object({ id: z.string() })
 
 const memForgetResponseSchema = z.object({
@@ -261,6 +264,15 @@ export const memoryRemote: TypertRemoteContribution = {
       result: codec('@deepseek-ai/dsh-mem/client#MemConfigureResponse', memConfigureResponseSchema),
     },
     {
+      id: '@deepseek-ai/dsh-mem#memory/warmup',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'warmup',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      result: codec('@deepseek-ai/dsh-mem/client#MemWarmupResponse', memWarmupResponseSchema),
+    },
+    {
       id: '@deepseek-ai/dsh-mem#memory/setEnabled',
       service: 'memory',
       namespace: 'memory',
@@ -310,6 +322,7 @@ export const memoryRemote: TypertRemoteContribution = {
 /** Namespace surface the widget reads through the mounted Remote service. */
 export interface MemoryRemoteNamespace {
   status(): Promise<RemoteResult<MemStatus>>
+  warmup(): Promise<RemoteResult<MemWarmupResponse>>
   models(): Promise<RemoteResult<MemModelsResponse>>
   configure(request: MemConfigureRequest): Promise<RemoteResult<MemConfigureResponse>>
   cacheStats(): Promise<RemoteResult<MemCacheStats>>

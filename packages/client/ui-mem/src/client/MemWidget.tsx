@@ -19,6 +19,7 @@ import { memStyles } from './styles.ts'
 /** Mutation verbs injected from the plugin apply closure. */
 export interface MemActions extends MemStatsActions {
   status(): Promise<RemoteResult<MemStatus>>
+  warmup(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemWarmupResponse>>
   models(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemModelsResponse>>
   configure(model: string): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemConfigureResponse>>
   search(query: string, limit: number): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemSearchResponse>>
@@ -107,6 +108,7 @@ export function MemWidget({
   useProjection,
   t,
   status,
+  warmup,
   models,
   configure,
   cacheStats,
@@ -212,9 +214,11 @@ export function MemWidget({
     }
   }, [query, search])
 
-  // Close on Escape / outside click; focus the search box on open.
+  // Close on Escape / outside click; focus the search box on open; warm the
+  // embedding pipeline so the status flips to ready without a search first.
   useEffect(() => {
     if (!open) return
+    void warmup().then(() => { void loadStatus() })
     const onPointerDown = (event: MouseEvent): void => {
       if (rootRef.current !== null && event.target instanceof Node && !rootRef.current.contains(event.target)) {
         setOpen(false)
@@ -231,7 +235,7 @@ export function MemWidget({
       document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [open])
+  }, [open, warmup, loadStatus, loadCatalog])
 
   const onModelChange = useCallback((modelId: string) => {
     if (configuring) return
@@ -269,7 +273,7 @@ export function MemWidget({
 
   const dotState = statusError || statusSnapshot?.warmup.state === 'error'
     ? 'error'
-    : statusSnapshot?.warmup.state === 'downloading' || (statusSnapshot !== null && !statusSnapshot.ready)
+    : statusSnapshot?.warmup.state === 'downloading'
       ? 'warming'
       : statusSnapshot?.ready === true
         ? 'ready'
@@ -390,6 +394,9 @@ export function MemWidget({
                   {t('warmingDetail')}{statusSnapshot?.warmup.detail !== null ? ` (${statusSnapshot?.warmup.detail})` : ''} · {warmPercent}%
                 </span>
               </>
+            )}
+            {dotState === 'idle' && (
+              <span className="dshmem-warm-detail">{t('warmOnOpen')}</span>
             )}
           </div>
 

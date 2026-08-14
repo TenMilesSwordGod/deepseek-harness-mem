@@ -30,6 +30,7 @@ export type {
   MemSetEnabledRequest,
   MemSetEnabledResponse,
   MemStatus,
+  MemWarmupResponse,
   MemoryActivity,
   MemoryActivityKind,
   MemoryScope,

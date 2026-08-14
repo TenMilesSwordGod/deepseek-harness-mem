@@ -27,6 +27,9 @@ export const Config = z.object({
   maxRecordChars: z.number().step(1).min(1).default(4000),
   activityRingSize: z.number().step(1).min(1).default(8),
   huggingfaceBaseUrl: z.string().default(''),
+  autoInject: z.boolean().default(true),
+  autoInjectCount: z.number().step(1).min(1).max(8).default(3),
+  autoInjectThreshold: z.number().min(0).max(1).default(0.45),
 })
 
 /**
@@ -57,5 +60,8 @@ export function resolveConfig(config: Partial<MemConfig>): ResolvedMemConfig {
     huggingfaceBaseUrl: config.huggingfaceBaseUrl !== undefined && config.huggingfaceBaseUrl !== ''
       ? config.huggingfaceBaseUrl.replace(/\/+$/, '')
       : 'https://huggingface.co',
+    autoInject: config.autoInject ?? true,
+    autoInjectCount: config.autoInjectCount ?? 3,
+    autoInjectThreshold: config.autoInjectThreshold ?? 0.45,
   }
 }

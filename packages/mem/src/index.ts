@@ -88,6 +88,7 @@ function normalizeTags(raw: unknown): string {
 /** Model-facing guidance section (English, mirroring opencode-mem's intent). */
 const MEMORY_GUIDANCE = [
   'You have persistent semantic memory through three tools. Read and write it at the right moments.',
+  'You also receive a "Relevant memories" section in this prompt, pre-retrieved from persistent memory for the current request — treat it as background knowledge and use it without mentioning the memory system.',
   '',
   'WHEN TO READ (mem_search):',
   '- At the start of a task or session, search for related past work, conventions, and decisions before acting.',
@@ -133,6 +134,40 @@ function resolveSimilarity(value: unknown, fallback: number): number {
 function resolveText(value: unknown, name: string, maxChars: number): string {
   if (typeof value !== 'string' || value.trim() === '') throw new Error(`${name} must be a non-empty string`)
   return value.trim().slice(0, maxChars)
+}
+
+/**
+ * Latest human user message text in one session, or null when none.
+ * @param session - session whose events are scanned.
+ */
+export function latestUserText(session: Session): string | null {
+  const events = session.events
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index]
+    if (event?.type !== 'user/message') continue
+    const data = event.data
+    if (data.source.kind !== 'user') continue
+    const text = data.content
+      .filter((block) => block.type === 'text')
+      .map((block) => (block as { type: 'text'; text: string }).text)
+      .join('\n')
+      .trim()
+    if (text !== '') return text.slice(0, 600)
+  }
+  return null
+}
+
+/**
+ * Model-facing rendering of the injected memory context section.
+ * @param hits - ranked hits to inject.
+ */
+export function renderMemoryContext(hits: Array<{ content: string; similarity: number }>): string {
+  const lines = hits.map((hit) => `- ${hit.content}`)
+  return [
+    'Relevant memories retrieved from persistent memory (use them silently as context):',
+    ...lines,
+    'Use these as background knowledge. Do not mention the memory system, and do not re-record these facts unless they change.',
+  ].join('\n')
 }
 
 /**
@@ -187,6 +222,45 @@ export class MemService extends TypertRemoteService {
     // registry, so endpoint claims never depend on cached source markers.
     ctx.inject(['typert'], (typertCtx) => {
       typertCtx.typert.register(MEMORY_TYPERT_HOST)
+    })
+
+    // Turn-start memory injection: before each model request, retrieve the
+    // top memories matching the latest human message and prepend them as a
+    // prompt section (the opencode-mem memory-prompt-timeline equivalent).
+    ctx.on('system-prompt/assemble', async (assembly, context, next) => {
+      const result = await next()
+      if (!this.config.autoInject) return result
+      const agent = context.agent ?? (context.scope === undefined ? undefined : ctx.agents.get(context.scope as import('@deepseek-ai/dsh-session').SessionId))
+      const session = agent?.session
+      if (session === undefined) return result
+      const text = latestUserText(session)
+      if (text === null) return result
+      try {
+        const embedding = await this.embedding.embed(text, 'query')
+        const hits = this.store.search(
+          embedding,
+          'project',
+          projectOf(session),
+          this.embedding.dimensions,
+          this.config.autoInjectCount,
+          this.config.autoInjectThreshold,
+        )
+        if (hits.length === 0) return result
+        // Sections carry no order metadata after assembly, so insert before
+        // the static 'memory' guidance section (its stable anchor).
+        const injected = {
+          name: 'memory-context',
+          text: renderMemoryContext(hits),
+        }
+        const anchor = result.sections.findIndex((section) => section.name === 'memory')
+        const sections = [...result.sections]
+        if (anchor === -1) sections.push(injected)
+        else sections.splice(anchor, 0, injected)
+        return { ...result, sections }
+      } catch {
+        // Embedding unavailable (cold or missing model): skip injection.
+        return result
+      }
     })
     this.#registerTools(ctx)
     ctx.systemPrompt.section({

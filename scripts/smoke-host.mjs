@@ -8,7 +8,7 @@ import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools'
 import { createServer } from 'node:http'
 import { existsSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { MemService } from '../packages/mem/lib/index.js'
+import { MemService, latestUserText, renderMemoryContext } from '../packages/mem/lib/index.js'
 import { EmbeddingService } from '../packages/mem/lib/embedding.js'
 
 /** Local fake Hugging Face: serves model listings and files for download tests. */
@@ -154,6 +154,18 @@ ctx.plugin({
       validate(forgetTool, forgotten)
       if (!forgotten.forgotten) throw new Error('tool forget failed')
       console.log('11b. tools execute + output schemas validate (record/search/forget)')
+
+    // auto-injection helpers: latest human text + model-facing rendering
+    const fakeEvents = [
+      { type: 'user/message', seq: 1, data: { source: { kind: 'user' }, content: [{ type: 'text', text: '  which python tool should we use?  ' }] } },
+      { type: 'assistant/message', seq: 2, data: {} },
+      { type: 'user/message', seq: 3, data: { source: { kind: 'goal' }, content: [{ type: 'text', text: 'goal continuation' }] } },
+    ]
+    const text = latestUserText({ events: fakeEvents })
+    if (text !== 'which python tool should we use?') throw new Error(`latestUserText wrong: ${text}`)
+    const rendered = renderMemoryContext([{ content: 'prefer uv for python', similarity: 0.8 }])
+    if (!rendered.includes('prefer uv for python') || !rendered.includes('Relevant memories')) throw new Error('renderMemoryContext wrong')
+    console.log('11c. latestUserText (skips goal-sourced) + renderMemoryContext ok')
     }
 
     // ── download / cancel / failure tests against a local fake HF server ──

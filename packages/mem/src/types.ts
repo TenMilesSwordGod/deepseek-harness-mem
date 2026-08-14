@@ -238,6 +238,12 @@ export interface MemConfig {
   activityRingSize: number
   /** Hugging Face base URL used by the manual downloader. */
   huggingfaceBaseUrl: string
+  /** Inject top related memories into the prompt at each user turn. */
+  autoInject: boolean
+  /** Max memories injected per turn. */
+  autoInjectCount: number
+  /** Minimum similarity for auto-injected memories. */
+  autoInjectThreshold: number
 }
 
 /** One entry in the embedding cache hit ranking. */

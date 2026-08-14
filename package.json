@@ -25,7 +25,8 @@
     "@huggingface/transformers": "^3.7.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@deepseek-ai/dsh-typert-registry": "^0.1.0-rc.6"
+    "@deepseek-ai/dsh-typert-registry": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-system-prompt": "^0.1.0-rc.6"
   },
   "scripts": {
     "build": "tsc -p packages/mem/tsconfig.json && node packages/client/ui-mem/scripts/build-client.mjs",

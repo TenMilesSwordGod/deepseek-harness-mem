@@ -25,7 +25,7 @@ It gives the coding agent a durable, SQLite-backed memory with local CPU embeddi
 
 - A pill button in the top-right header (`conversation.session.header.utilities`): state dot (ready / warming / error) + memory count.
 - Panel: backend status, **embedding model selector**, cache tip, quick semantic search with similarity scores, manual record, per-item delete, and a strategy hint.
-- A **统计 (stats) button inside the panel header** that opens its own standalone modal: overview cards (total / cache hits / hit rate / cache size), the **full memory list** (paginated, scope tabs 全部/项目/全局, date-sortable), and the **embedding cache hit ranking** (sortable by hit count).
+- A **统计 (stats) button inside the panel header** that opens its own standalone modal: overview cards (total / cache hits / hit rate / cache size), the **full memory list** (paginated, scope tabs 全部/项目/全局, date-sortable) with per-row **add / delete / enable / disable** (disabled memories stay stored but leave search and dedup; shown struck-through with a toggle), and the **embedding cache hit ranking** (sortable by hit count).
 - **Fluent animations**: the dot chases while the model warms up, the chip pulses and a toast slides in the moment the AI records or searches (driven by a session projection over `tool/call` events), results stagger in, the cache tip crossfades on model switch. All animations respect `prefers-reduced-motion`.
 - UI copy is Chinese (matching the harness), with English fallback via the locale plugin; all styles use the shared `--dsw-*` design tokens (light + dark).
 

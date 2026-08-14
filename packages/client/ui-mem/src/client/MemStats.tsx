@@ -10,9 +10,12 @@ import { useCallback, useEffect, useState } from 'react'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   MemCacheStats,
+  MemForgetResponse,
   MemListAllItem,
   MemListAllRequest,
   MemListAllResponse,
+  MemRecordResponse,
+  MemSetEnabledResponse,
 } from '@deepseek-ai/dsh-mem/client'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 
@@ -20,6 +23,9 @@ import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 export interface MemStatsActions {
   cacheStats(): Promise<RemoteResult<MemCacheStats>>
   listAll(request: MemListAllRequest): Promise<RemoteResult<MemListAllResponse>>
+  setEnabled(id: string, enabled: boolean): Promise<RemoteResult<MemSetEnabledResponse>>
+  forget(id: string): Promise<RemoteResult<MemForgetResponse>>
+  record(content: string, tags: string, scope: 'project' | 'global'): Promise<RemoteResult<MemRecordResponse>>
 }
 
 /** Controlled modal props: open state, close verb, locale seat, data verbs. */
@@ -39,6 +45,14 @@ function unwrap<T>(result: RemoteResult<T>): T | null {
   return result.ok ? result.value : null
 }
 
+function IconTrash(): JSX.Element {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m3 0-1 13H7L6 7m4 4v5m4-5v5" />
+    </svg>
+  )
+}
+
 function IconClose(): JSX.Element {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -48,8 +62,12 @@ function IconClose(): JSX.Element {
 }
 
 /** Standalone stats dialog rendered from the memory panel's 统计 button. */
-export function MemStatsModal({ open, onClose, t, cacheStats, listAll }: MemStatsModalProps): JSX.Element | null {
+export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnabled, forget, record }: MemStatsModalProps): JSX.Element | null {
   const [cache, setCache] = useState<MemCacheStats | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [draftScope, setDraftScope] = useState<'project' | 'global'>('project')
+  const [saving, setSaving] = useState(false)
   const [items, setItems] = useState<MemListAllItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -101,6 +119,45 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll }: MemStat
     void loadList(page, scope, next)
   }
 
+  const reload = useCallback(() => {
+    void loadList(page, scope, dateSort)
+    void cacheStats().then((result) => {
+      const value = unwrap(result)
+      if (value !== null) setCache(value)
+    })
+  }, [page, scope, dateSort, loadList, cacheStats])
+
+  const submitAdd = useCallback(() => {
+    const content = draft.trim()
+    if (content === '' || saving) return
+    setSaving(true)
+    void record(content, '', draftScope).then((result) => {
+      setSaving(false)
+      if (result.ok) {
+        setDraft('')
+        setAdding(false)
+        reload()
+      }
+    })
+  }, [draft, draftScope, saving, record, reload])
+
+  const onToggle = useCallback((id: string, enabled: boolean) => {
+    void setEnabled(id, enabled).then((result) => {
+      if (result.ok && result.value.updated) {
+        setItems((current) => current.map((item) => (item.id === id ? { ...item, enabled: result.value.enabled } : item)))
+      }
+    })
+  }, [setEnabled])
+
+  const onDelete = useCallback((id: string) => {
+    void forget(id).then((result) => {
+      if (result.ok && result.value.forgotten) {
+        setItems((current) => current.filter((item) => item.id !== id))
+        setTotal((current) => Math.max(0, current - 1))
+      }
+    })
+  }, [forget])
+
   const sortedCacheTop = cache === null ? [] : [...cache.top].sort((a, b) =>
     hitsSort === 'hitsDesc' ? b.hits - a.hits || b.lastAt - a.lastAt : a.hits - b.hits || b.lastAt - a.lastAt)
 
@@ -115,10 +172,49 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll }: MemStat
       <div className="dshmem-modal" role="dialog" aria-label={t('statsTitle')}>
         <div className="dshmem-modal-header">
           <span className="dshmem-modal-title">{t('statsTitle')}</span>
+          <button
+            type="button"
+            className="dshmem-stats-openbtn"
+            data-active={adding || undefined}
+            onClick={() => { setAdding((current) => !current) }}
+          >
+            {t('statsAdd')}
+          </button>
           <button type="button" className="dshmem-panel-close" aria-label={t('statsClose')} onClick={onClose}>
             <IconClose />
           </button>
         </div>
+
+        {adding && (
+          <div className="dshmem-stats-add">
+            <textarea
+              className="dshmem-record-input"
+              rows={2}
+              value={draft}
+              placeholder={t('recordPlaceholder')}
+              aria-label={t('recordPlaceholder')}
+              onChange={(event) => { setDraft(event.target.value) }}
+            />
+            <div className="dshmem-stats-add-row">
+              <select
+                className="dshmem-stats-add-scope"
+                value={draftScope}
+                onChange={(event) => { setDraftScope(event.target.value === 'global' ? 'global' : 'project') }}
+              >
+                <option value="project">{t('scopeProject')}</option>
+                <option value="global">{t('scopeGlobal')}</option>
+              </select>
+              <button
+                type="button"
+                className="dshmem-record-save"
+                disabled={draft.trim() === '' || saving}
+                onClick={submitAdd}
+              >
+                {t('recordButton')}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="dshmem-stats-cards">
           <div className="dshmem-stats-card">
@@ -165,17 +261,37 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll }: MemStat
               <button type="button" className="dshmem-stats-col-date" onClick={onDateSort}>
                 {t('statsCreatedAt')} {dateSort === 'createdAtDesc' ? '↓' : '↑'}
               </button>
+              <span className="dshmem-stats-col-actions">{t('statsActions')}</span>
             </div>
             {items.length === 0 && !loading && (
               <div className="dshmem-stats-empty">{t('statsEmpty')}</div>
             )}
             {loading && <div className="dshmem-stats-empty">{t('statsLoading')}</div>}
             {items.map((item) => (
-              <div className="dshmem-stats-row" key={item.id}>
+              <div className="dshmem-stats-row" key={item.id} data-disabled={!item.enabled || undefined}>
                 <span className="dshmem-stats-col-content" title={item.content}>{item.content}</span>
                 <span className="dshmem-stats-col-scope">{item.scope === 'global' ? t('scopeGlobal') : t('scopeProject')}</span>
                 <span className="dshmem-stats-col-dims">{item.dims}</span>
                 <span className="dshmem-stats-col-date">{new Date(item.createdAt).toLocaleString()}</span>
+                <span className="dshmem-stats-col-actions">
+                  <button
+                    type="button"
+                    className="dshmem-stats-toggle"
+                    data-on={item.enabled || undefined}
+                    title={item.enabled ? t('statsDisable') : t('statsEnable')}
+                    onClick={() => { onToggle(item.id, !item.enabled) }}
+                  >
+                    <span className="dshmem-stats-toggle-knob" />
+                  </button>
+                  <button
+                    type="button"
+                    className="dshmem-item-del dshmem-stats-del"
+                    title={t('forget')}
+                    onClick={() => { onDelete(item.id) }}
+                  >
+                    <IconTrash />
+                  </button>
+                </span>
               </div>
             ))}
           </div>

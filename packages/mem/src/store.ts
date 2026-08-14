@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto'
 import type { MemoryScope, MemHit } from './types.ts'
 
 /** Bump when the on-disk schema changes incompatibly. */
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 3
 
 /** One stored row as read from SQLite. */
 interface MemoryRow {
@@ -25,6 +25,7 @@ interface MemoryRow {
   session_id: string | null
   embedding: Uint8Array
   dims: number
+  enabled: number
   created_at: number
 }
 
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS memories (
   session_id TEXT,
   embedding BLOB NOT NULL,
   dims INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
@@ -80,6 +82,7 @@ export class MemoryStore {
   readonly #insert: ReturnType<DatabaseSync['prepare']>
   readonly #selectScope: ReturnType<DatabaseSync['prepare']>
   readonly #updateEmbedding: ReturnType<DatabaseSync['prepare']>
+  readonly #setEnabled: ReturnType<DatabaseSync['prepare']>
   readonly #stale: ReturnType<DatabaseSync['prepare']>
   readonly #deleteId: ReturnType<DatabaseSync['prepare']>
   readonly #count: ReturnType<DatabaseSync['prepare']>
@@ -101,6 +104,11 @@ export class MemoryStore {
     } else if (version === 1) {
       // v1 -> v2: rows gain a dims column; v1 stored nomic 768d embeddings.
       this.#db.exec('ALTER TABLE memories ADD COLUMN dims INTEGER NOT NULL DEFAULT 768')
+      this.#db.exec('ALTER TABLE memories ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1')
+      this.#db.prepare('UPDATE mem_meta SET value = ? WHERE key = ?').run(String(SCHEMA_VERSION), 'schema_version')
+    } else if (version === 2) {
+      // v2 -> v3: rows gain the enabled flag.
+      this.#db.exec('ALTER TABLE memories ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1')
       this.#db.prepare('UPDATE mem_meta SET value = ? WHERE key = ?').run(String(SCHEMA_VERSION), 'schema_version')
     } else if (version !== SCHEMA_VERSION) {
       throw new Error(`mem store schema version ${version} is unsupported (expected ${SCHEMA_VERSION})`)
@@ -109,8 +117,9 @@ export class MemoryStore {
       'INSERT INTO memories (id, content, tags, scope, project, session_id, embedding, dims, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     )
     this.#selectScope = this.#db.prepare(
-      'SELECT id, content, tags, scope, project, session_id, embedding, dims, created_at FROM memories WHERE scope = ? ORDER BY created_at DESC',
+      'SELECT id, content, tags, scope, project, session_id, embedding, dims, enabled, created_at FROM memories WHERE scope = ? ORDER BY created_at DESC',
     )
+    this.#setEnabled = this.#db.prepare('UPDATE memories SET enabled = ?, updated_at = ? WHERE id = ?')
     this.#updateEmbedding = this.#db.prepare(
       'UPDATE memories SET embedding = ?, dims = ?, updated_at = ? WHERE id = ?',
     )
@@ -142,13 +151,13 @@ export class MemoryStore {
     return Number((this.#count.get() as { n: number }).n)
   }
 
-  /** All rows of one scope axis, newest first (candidates for dedup/search). */
+  /** All rows of one scope axis, newest first (candidates for dedup/search); disabled rows are excluded. */
   #candidates(scope: MemoryScope, project: string | null, dims: number): MemoryRow[] {
-    const rows = (this.#selectScope.all(scope === 'global' ? 'global' : 'project') as unknown as MemoryRow[])
-      .filter((row) => row.dims === dims)
+    const enabled = (rows: MemoryRow[]) => rows.filter((row) => row.dims === dims && row.enabled === 1)
+    const rows = enabled(this.#selectScope.all(scope === 'global' ? 'global' : 'project') as unknown as MemoryRow[])
     if (scope === 'global') return rows
     if (project === null) return rows
-    const globalRows = (this.#selectScope.all('global') as unknown as MemoryRow[]).filter((row) => row.dims === dims)
+    const globalRows = enabled(this.#selectScope.all('global') as unknown as MemoryRow[])
     return [
       ...rows.filter((row) => row.project === project),
       ...globalRows,
@@ -257,6 +266,12 @@ export class MemoryStore {
     return result.changes > 0
   }
 
+  /** Enable or disable one memory; disabled rows stay stored but leave search and dedup. */
+  setEnabled(id: string, enabled: boolean): boolean {
+    const result = this.#setEnabled.run(enabled ? 1 : 0, Date.now(), id)
+    return result.changes > 0
+  }
+
   /** Paginated full listing with scope filter and date ordering. */
   listAll(
     scope: 'all' | MemoryScope,
@@ -264,7 +279,7 @@ export class MemoryStore {
     sort: 'createdAtDesc' | 'createdAtAsc',
     offset: number,
     limit: number,
-  ): { items: Array<{ id: string; content: string; tags: string; scope: MemoryScope; dims: number; createdAt: number }>; total: number } {
+  ): { items: Array<{ id: string; content: string; tags: string; scope: MemoryScope; dims: number; enabled: boolean; createdAt: number }>; total: number } {
     const order = sort === 'createdAtAsc' ? 'ASC' : 'DESC'
     const where = scope === 'all'
       ? { sql: '1 = 1', params: [] as SQLInputValue[] }
@@ -273,17 +288,18 @@ export class MemoryStore {
         : { sql: '(scope = ? AND project = ?) OR scope = ?', params: [scope, project, 'global'] as SQLInputValue[] }
     const total = Number((this.#db.prepare(`SELECT COUNT(*) AS n FROM memories WHERE ${where.sql}`).get(...where.params) as { n: number }).n)
     const items = this.#db.prepare(
-      `SELECT id, content, tags, scope, dims, created_at FROM memories WHERE ${where.sql} ORDER BY created_at ${order} LIMIT ? OFFSET ?`,
+      `SELECT id, content, tags, scope, dims, enabled, created_at FROM memories WHERE ${where.sql} ORDER BY created_at ${order} LIMIT ? OFFSET ?`,
     ).all(...where.params, limit, offset) as unknown as Array<{
       id: string
       content: string
       tags: string
       scope: MemoryScope
       dims: number
+      enabled: number
       created_at: number
     }>
     return {
-      items: items.map((row) => ({ id: row.id, content: row.content, tags: row.tags, scope: row.scope, dims: row.dims, createdAt: row.created_at })),
+      items: items.map((row) => ({ id: row.id, content: row.content, tags: row.tags, scope: row.scope, dims: row.dims, enabled: row.enabled === 1, createdAt: row.created_at })),
       total,
     }
   }

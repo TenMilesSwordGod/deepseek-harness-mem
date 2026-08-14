@@ -753,7 +753,7 @@ export const memStyles = `
 
 .dshmem-stats-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 64px 48px 150px;
+  grid-template-columns: minmax(0, 1fr) 64px 48px 150px 96px;
   gap: 8px;
   align-items: center;
   padding: 6px 8px;
@@ -799,6 +799,80 @@ export const memStyles = `
   color: inherit;
   cursor: pointer;
   padding: 0;
+}
+
+.dshmem-stats-col-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.dshmem-stats-row[data-disabled] .dshmem-stats-col-content {
+  color: var(--dsw-alias-label-caption);
+  text-decoration: line-through;
+  text-decoration-color: var(--dsw-alias-border-l3);
+}
+
+.dshmem-stats-toggle {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  border: none;
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-skeleton);
+  cursor: pointer;
+  transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.dshmem-stats-toggle[data-on] {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.dshmem-stats-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--dsw-alias-label-primary-foreground);
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.dshmem-stats-toggle[data-on] .dshmem-stats-toggle-knob {
+  transform: translateX(12px);
+}
+
+.dshmem-stats-del {
+  opacity: 1;
+}
+
+.dshmem-stats-add {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  animation: dshmem-tip-in 0.3s var(--ds-ease-in-out);
+}
+
+.dshmem-stats-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dshmem-stats-add-scope {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-specific-selector);
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
 }
 
 .dshmem-stats-pager {

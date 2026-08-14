@@ -56,8 +56,18 @@ ctx.plugin({
     const cache = service.cacheStats()
     console.log('8. cacheStats:', JSON.stringify({ hits: cache.hits, misses: cache.misses, size: cache.size, top: cache.top.slice(0, 2).map((t) => [t.text.slice(0, 24), t.hits]) }))
     const all = service.listAll(fakeAgent('/home/vncuser/workdir'), { scope: 'all', sort: 'createdAtDesc', page: 1, pageSize: 50 })
-    console.log('9. listAll:', JSON.stringify({ total: all.total, page: all.page, first: all.items[0]?.content.slice(0, 30), dims: all.items[0]?.dims }))
+    console.log('9. listAll:', JSON.stringify({ total: all.total, page: all.page, first: all.items[0]?.content.slice(0, 30), dims: all.items[0]?.dims, enabled: all.items[0]?.enabled }))
     if (searchAgain.results.length === 0) throw new Error('repeat search unexpectedly empty')
+
+    // enable/disable: a disabled memory leaves search
+    const firstId = all.items[0].id
+    const off = service.setEnabled({ id: firstId, enabled: false })
+    const hidden = await service.search(fakeAgent('/home/vncuser/workdir'), { query: all.items[0].content.slice(0, 20), limit: 5 })
+    const back = service.setEnabled({ id: firstId, enabled: true })
+    const visible = await service.search(fakeAgent('/home/vncuser/workdir'), { query: all.items[0].content.slice(0, 20), limit: 5 })
+    console.log('10. setEnabled:', JSON.stringify({ off: off.updated, hiddenHits: hidden.results.length, back: back.updated, visibleHits: visible.results.length }))
+    if (hidden.results.some((hit) => hit.id === firstId)) throw new Error('disabled memory still searchable')
+    if (!visible.results.some((hit) => hit.id === firstId)) throw new Error('re-enabled memory missing from search')
     console.log('SMOKE OK')
     } catch (error) {
       console.error('SMOKE FAIL:', error?.stack ?? error)

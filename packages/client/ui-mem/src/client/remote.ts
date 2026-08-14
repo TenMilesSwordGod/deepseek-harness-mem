@@ -24,6 +24,8 @@ import type {
   MemRecordResponse,
   MemSearchRequest,
   MemSearchResponse,
+  MemSetEnabledRequest,
+  MemSetEnabledResponse,
   MemStatus,
 } from '@deepseek-ai/dsh-mem/client'
 
@@ -142,12 +144,17 @@ const memListAllResponseSchema = z.object({
     tags: z.string(),
     scope: z.enum(['project', 'global']),
     dims: z.number(),
+    enabled: z.boolean(),
     createdAt: z.number(),
   })),
   total: z.number(),
   page: z.number(),
   pageSize: z.number(),
 })
+
+const memSetEnabledRequestSchema = z.object({ id: z.string(), enabled: z.boolean() })
+
+const memSetEnabledResponseSchema = z.object({ id: z.string(), enabled: z.boolean(), updated: z.boolean() })
 
 const memForgetRequestSchema = z.object({ id: z.string() })
 
@@ -254,6 +261,17 @@ export const memoryRemote: TypertRemoteContribution = {
       result: codec('@deepseek-ai/dsh-mem/client#MemConfigureResponse', memConfigureResponseSchema),
     },
     {
+      id: '@deepseek-ai/dsh-mem#memory/setEnabled',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'setEnabled',
+      invocation: { kind: 'direct' },
+      parameters: [
+        jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemSetEnabledRequest', memSetEnabledRequestSchema),
+      ],
+      result: codec('@deepseek-ai/dsh-mem/client#MemSetEnabledResponse', memSetEnabledResponseSchema),
+    },
+    {
       id: '@deepseek-ai/dsh-mem#memory/cacheStats',
       service: 'memory',
       namespace: 'memory',
@@ -296,6 +314,7 @@ export interface MemoryRemoteNamespace {
   configure(request: MemConfigureRequest): Promise<RemoteResult<MemConfigureResponse>>
   cacheStats(): Promise<RemoteResult<MemCacheStats>>
   listAll(sessionId: SessionId, request: MemListAllRequest): Promise<RemoteResult<MemListAllResponse>>
+  setEnabled(request: MemSetEnabledRequest): Promise<RemoteResult<MemSetEnabledResponse>>
   search(sessionId: SessionId, request: MemSearchRequest): Promise<RemoteResult<MemSearchResponse>>
   record(sessionId: SessionId, request: MemRecordRequest): Promise<RemoteResult<MemRecordResponse>>
   list(sessionId: SessionId, request: MemListRequest): Promise<RemoteResult<MemListResponse>>

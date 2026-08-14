@@ -36,6 +36,8 @@ import type {
   MemListAllResponse,
   MemListRequest,
   MemListResponse,
+  MemSetEnabledRequest,
+  MemSetEnabledResponse,
   MemModelsResponse,
   MemProjection,
   MemRecordRequest,
@@ -481,6 +483,16 @@ export class MemService extends TypertRemoteService {
     return {
       items: this.store.list(scope, project, resolveLimit(request.limit, 20, 100)),
     }
+  }
+
+  /** Enable or disable one memory from the stats modal. */
+  @Remote('setEnabled')
+  setEnabled(request: MemSetEnabledRequest): MemSetEnabledResponse {
+    const id = resolveText(request.id, 'id', 200)
+    const enabled = request.enabled === true
+    const updated = this.store.setEnabled(id, enabled)
+    if (updated) this.pushActivity(enabled ? 'record' : 'forget', id)
+    return { id, enabled, updated }
   }
 
   /** Embedding cache statistics with the top-hit ranking (stats modal). */

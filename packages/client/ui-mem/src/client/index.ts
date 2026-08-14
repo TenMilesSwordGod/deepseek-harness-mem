@@ -71,8 +71,9 @@ export async function apply(ctx: ClientContext): Promise<void> {
         configure: (model) => memory.configure({ model }),
         cacheStats: () => memory.cacheStats(),
         listAll: (request) => memory.listAll(sessionId, request),
+        setEnabled: (id, enabled) => memory.setEnabled({ id, enabled }),
         search: (query, limit) => memory.search(sessionId, { query, limit }),
-        record: (content) => memory.record(sessionId, { content }),
+        record: (content, tags, scope) => memory.record(sessionId, { content, ...(tags === undefined ? {} : { tags }), ...(scope === undefined ? {} : { scope }) }),
         forget: (id) => memory.forget({ id }),
       }
     },

@@ -246,7 +246,23 @@ export interface MemListAllItem {
   tags: string
   scope: MemoryScope
   dims: number
+  /** False when the memory is disabled (excluded from search and dedup). */
+  enabled: boolean
   createdAt: number
+}
+
+/** Enable/disable request. */
+export interface MemSetEnabledRequest {
+  id: string
+  enabled: boolean
+}
+
+/** Enable/disable result. */
+export interface MemSetEnabledResponse {
+  id: string
+  enabled: boolean
+  /** True when the row was found and updated. */
+  updated: boolean
 }
 
 /** All-memories request: paginated, optional scope filter and date sort. */

@@ -22,7 +22,7 @@ export interface MemActions extends MemStatsActions {
   models(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemModelsResponse>>
   configure(model: string): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemConfigureResponse>>
   search(query: string, limit: number): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemSearchResponse>>
-  record(content: string): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemRecordResponse>>
+  record(content: string, tags?: string, scope?: 'project' | 'global'): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemRecordResponse>>
   forget(id: string): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemForgetResponse>>
 }
 
@@ -111,6 +111,7 @@ export function MemWidget({
   configure,
   cacheStats,
   listAll,
+  setEnabled,
   search,
   record,
   forget,
@@ -472,6 +473,9 @@ export function MemWidget({
         t={t}
         cacheStats={cacheStats}
         listAll={listAll}
+        setEnabled={setEnabled}
+        forget={forget}
+        record={record}
       />
     </div>
   )

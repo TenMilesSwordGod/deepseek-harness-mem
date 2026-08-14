@@ -27,6 +27,8 @@ export type {
 
   MemSearchRequest,
   MemSearchResponse,
+  MemSetEnabledRequest,
+  MemSetEnabledResponse,
   MemStatus,
   MemoryActivity,
   MemoryActivityKind,

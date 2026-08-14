@@ -11,6 +11,7 @@
 
 import { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
 // Type-only: resolves ctx.sessionProjections for the optional unit child.
 import type {} from '@deepseek-ai/dsh-session-projection'
 // Type-only: resolves ctx.typert for the strict host-face registration.
@@ -171,6 +172,71 @@ export function renderMemoryContext(hits: Array<{ content: string; similarity: n
 }
 
 /**
+ * System prompt for the post-turn capture call: extract durable memories only.
+ */
+export function buildAutoCapturePrompt(): string {
+  return [
+    'You summarize a completed coding-task transcript into durable memories.',
+    'Extract ONLY facts worth reusing in future sessions: decisions, preferences, conventions, non-obvious fixes, architecture facts, and completed-work summaries.',
+    'Skip transient details, greetings, and one-off exploration.',
+    'Write each memory in one self-contained sentence, in the language of the transcript.',
+    'Return a JSON array of strings and nothing else, for example: ["Prefer uv for python tooling.", "The web GUI runs on port 29095."].',
+    'If nothing is worth remembering, return an empty array [].',
+  ].join('\n')
+}
+
+/**
+ * Parse the capture response into a list of memory strings.
+ * @param text - raw model output (markdown fences tolerated).
+ * @returns extracted strings; empty on any parse failure.
+ */
+export function parseAutoCaptureResponse(text: string): string[] {
+  let payload = text.trim()
+  const fenced = payload.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (fenced !== null) payload = fenced[1].trim()
+  try {
+    const value = JSON.parse(payload) as unknown
+    if (!Array.isArray(value)) return []
+    return value.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter((item) => item !== '')
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Transcript of the most recently completed turn (user + assistant text).
+ * @param session - session whose events are scanned.
+ * @returns transcript text, or null when the last turn is too small or missing.
+ */
+export function lastTurnTranscript(session: Session): string | null {
+  const events = session.events
+  const parts: string[] = []
+  let seen = false
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index]
+    if (event === undefined) continue
+    if (event.type === 'turn/end') {
+      if (seen) break
+      seen = true
+      continue
+    }
+    if (!seen) continue
+    if (event.type === 'turn/start') break
+    if (event.type === 'user/message') {
+      const data = event.data
+      const text = data.content.filter((block) => block.type === 'text').map((block) => (block as { text: string }).text).join('\n').trim()
+      if (text !== '') parts.push(`user: ${text}`)
+    } else if (event.type === 'assistant/message') {
+      const blocks = (event.data.message as { content?: Array<{ type?: string; text?: string }> }).content ?? []
+      const text = blocks.filter((block) => block.type === 'text' && typeof block.text === 'string').map((block) => block.text as string).join('\n').trim()
+      if (text !== '') parts.push(`assistant: ${text}`)
+    }
+  }
+  const transcript = parts.reverse().join('\n').trim()
+  return transcript === '' ? null : transcript
+}
+
+/**
  * Persistent semantic memory service. Loader row id `mem`; the browser widget
  * talks to it through the `memory` Remote namespace.
  */
@@ -187,6 +253,7 @@ export class MemService extends TypertRemoteService {
   private readonly activityRing: MemoryActivity[] = []
   private reembedState: ReembedState | null = null
   private reembedVersion = 0
+  private readonly captureInFlight = new Set<string>()
 
   constructor(ctx: Context, config: Partial<MemConfig> = {}) {
     super(ctx, 'memory')
@@ -227,6 +294,13 @@ export class MemService extends TypertRemoteService {
     // Turn-start memory injection: before each model request, retrieve the
     // top memories matching the latest human message and prepend them as a
     // prompt section (the opencode-mem memory-prompt-timeline equivalent).
+    // Post-turn auto-capture: when a turn completes, summarize its transcript
+    // and record the durable memories for future sessions.
+    ctx.on('session/event', (session, event) => {
+      if (event.type !== 'turn/end') return
+      void this.maybeAutoCapture(ctx, session)
+    })
+
     ctx.on('system-prompt/assemble', async (assembly, context, next) => {
       const result = await next()
       if (!this.config.autoInject) return result
@@ -276,6 +350,65 @@ export class MemService extends TypertRemoteService {
     this.activityRing.unshift(activity)
     if (this.activityRing.length > this.config.activityRingSize) this.activityRing.pop()
     return activity
+  }
+
+  /**
+   * Auto-capture one completed turn: summarize and record durable memories.
+   * Background, one in flight per session, silent on every failure.
+   * @param ctx - owning context (LLM + default model services).
+   * @param session - session whose last turn completed.
+   */
+  private async maybeAutoCapture(ctx: Context, session: Session): Promise<void> {
+    if (!this.config.autoCapture) return
+    const id = session.id
+    if (this.captureInFlight.has(id)) return
+    const transcript = lastTurnTranscript(session)
+    if (transcript === null || transcript.length < this.config.autoCaptureMinChars) return
+    this.captureInFlight.add(id)
+    try {
+      const llm = ctx.get('llm') as { stream(options: Record<string, unknown>): AsyncIterable<{ type: string; text?: string }> } | undefined
+      if (llm === undefined) return
+      const defaultModel = ctx.get('agentDefaultModel') as { provider?: string; model?: string; reasoningEffort?: string } | undefined
+      if (defaultModel?.provider === undefined || defaultModel.model === undefined) return
+      const options = {
+        provider: defaultModel.provider,
+        model: defaultModel.model,
+        ...(defaultModel.reasoningEffort === undefined ? {} : { reasoningEffort: defaultModel.reasoningEffort }),
+        messages: [createUserMessage({
+          content: [{ type: 'text', text: transcript }],
+          source: { kind: 'plugin', plugin: 'simplemem' },
+        })],
+        system: buildAutoCapturePrompt(),
+        maxTokens: this.config.autoCaptureMaxTokens,
+        sessionId: id,
+        purpose: 'simplemem-auto-capture',
+        temperature: 0.2,
+      }
+      let text = ''
+      for await (const chunk of llm.stream(options)) {
+        if (chunk.type === 'text' && chunk.text !== undefined) text += chunk.text
+      }
+      const memories = parseAutoCaptureResponse(text).slice(0, this.config.autoCaptureMaxMemories)
+      for (const content of memories) {
+        const embedding = await this.embedding.embed(content, 'document')
+        const result = this.store.record(
+          content.slice(0, this.config.maxRecordChars),
+          '',
+          'project',
+          projectOf(session),
+          session.id,
+          embedding,
+          this.embedding.dimensions,
+          this.config.recordDedupThreshold,
+        )
+        if (result.status === 'recorded') this.pushActivity('record', content)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      ctx.logger.warn('simplemem auto-capture failed: %s', message)
+    } finally {
+      this.captureInFlight.delete(id)
+    }
   }
 
   #registerTools(ctx: Context): void {

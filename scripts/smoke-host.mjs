@@ -8,7 +8,7 @@ import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools'
 import { createServer } from 'node:http'
 import { existsSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { MemService, latestUserText, renderMemoryContext } from '../packages/mem/lib/index.js'
+import { MemService, latestUserText, renderMemoryContext, buildAutoCapturePrompt, parseAutoCaptureResponse, lastTurnTranscript } from '../packages/mem/lib/index.js'
 import { EmbeddingService } from '../packages/mem/lib/embedding.js'
 
 /** Local fake Hugging Face: serves model listings and files for download tests. */
@@ -166,6 +166,23 @@ ctx.plugin({
     const rendered = renderMemoryContext([{ content: 'prefer uv for python', similarity: 0.8 }])
     if (!rendered.includes('prefer uv for python') || !rendered.includes('Relevant memories')) throw new Error('renderMemoryContext wrong')
     console.log('11c. latestUserText (skips goal-sourced) + renderMemoryContext ok')
+
+    // auto-capture helpers: prompt, response parsing, turn transcript
+    const prompt = buildAutoCapturePrompt()
+    if (!prompt.includes('JSON array')) throw new Error('capture prompt wrong')
+    const parsed = parseAutoCaptureResponse('```json\n[\"prefer uv\", 42, \"port is 29095\"]\n```')
+    if (JSON.stringify(parsed) !== JSON.stringify(['prefer uv', 'port is 29095'])) throw new Error(`parse wrong: ${JSON.stringify(parsed)}`)
+    if (parseAutoCaptureResponse('not json').length !== 0) throw new Error('invalid json should parse empty')
+    const turnEvents = [
+      { type: 'turn/start', seq: 1, data: {} },
+      { type: 'user/message', seq: 2, data: { source: { kind: 'user' }, content: [{ type: 'text', text: 'which python tool?' }] } },
+      { type: 'assistant/message', seq: 3, data: { message: { role: 'assistant', content: [{ type: 'text', text: 'use uv' }] } } },
+      { type: 'turn/end', seq: 4, data: {} },
+    ]
+    const transcript = lastTurnTranscript({ events: turnEvents })
+    if (transcript !== 'user: which python tool?\nassistant: use uv') throw new Error(`transcript wrong: ${transcript}`)
+    if (lastTurnTranscript({ events: [{ type: 'turn/end', seq: 1, data: {} }] }) !== null) throw new Error('empty turn should be null')
+    console.log('11d. auto-capture prompt/parser/transcript helpers ok')
     }
 
     // ── download / cancel / failure tests against a local fake HF server ──

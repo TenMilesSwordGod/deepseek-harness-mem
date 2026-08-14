@@ -30,6 +30,10 @@ export const Config = z.object({
   autoInject: z.boolean().default(true),
   autoInjectCount: z.number().step(1).min(1).max(8).default(3),
   autoInjectThreshold: z.number().min(0).max(1).default(0.45),
+  autoCapture: z.boolean().default(true),
+  autoCaptureMinChars: z.number().step(1).min(1).default(100),
+  autoCaptureMaxMemories: z.number().step(1).min(1).max(5).default(3),
+  autoCaptureMaxTokens: z.number().step(1).min(64).max(8192).default(1024),
 })
 
 /**
@@ -63,5 +67,9 @@ export function resolveConfig(config: Partial<MemConfig>): ResolvedMemConfig {
     autoInject: config.autoInject ?? true,
     autoInjectCount: config.autoInjectCount ?? 3,
     autoInjectThreshold: config.autoInjectThreshold ?? 0.45,
+    autoCapture: config.autoCapture ?? true,
+    autoCaptureMinChars: config.autoCaptureMinChars ?? 100,
+    autoCaptureMaxMemories: config.autoCaptureMaxMemories ?? 3,
+    autoCaptureMaxTokens: config.autoCaptureMaxTokens ?? 1024,
   }
 }

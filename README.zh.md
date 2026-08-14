@@ -14,6 +14,8 @@
 
 **给 Agent 用（宿主插件 `@deepseek-ai/dsh-simplemem`）**
 
+- **任务完成后自动提炼记忆**：每个回合结束时，用 LLM 总结本轮对话、自动提炼值得复用的结论写入记忆（可配置 `autoCapture` / `autoCaptureMinChars` / `autoCaptureMaxMemories`），下次会话直接可用。
+
 - `simplemem_record` / `simplemem_search` / `simplemem_forget` 三个工具，带去重和 `project` / `global` 作用域（project = 会话所在工作目录树，对应 opencode-mem 的按项目分片）。
 - 系统提示引导，明确告诉模型**何时读、何时写**：任务开始时先搜；回答「过去的做法 / 之前的决定」之前先搜；持久事实（偏好、决策、非显而易见的修复、约定）一经落定就记录；绝不记录临时对话细节。
 - SQLite 存储（`node:sqlite`，零原生依赖），单调递增 `SCHEMA_VERSION`，自动迁移。

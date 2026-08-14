@@ -244,6 +244,14 @@ export interface MemConfig {
   autoInjectCount: number
   /** Minimum similarity for auto-injected memories. */
   autoInjectThreshold: number
+  /** Summarize completed turns and auto-record durable memories. */
+  autoCapture: boolean
+  /** Skip turns whose transcript is shorter than this. */
+  autoCaptureMinChars: number
+  /** Max memories recorded per auto-capture pass. */
+  autoCaptureMaxMemories: number
+  /** Max output tokens for the capture call. */
+  autoCaptureMaxTokens: number
 }
 
 /** One entry in the embedding cache hit ranking. */

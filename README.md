@@ -14,6 +14,8 @@ It gives the coding agent a durable, SQLite-backed memory with local CPU embeddi
 
 **For the agent (host plugin `@deepseek-ai/dsh-simplemem`)**
 
+- **Post-turn auto-capture**: when a turn completes, an LLM summarizes the transcript and automatically records the durable memories worth reusing (`autoCapture` / `autoCaptureMinChars` / `autoCaptureMaxMemories` config) — they are ready for the next session without any manual step.
+
 - `simplemem_record` / `simplemem_search` / `simplemem_forget` tools with deduplication and `project` / `global` scoping (project = the session's working-directory tree, mirroring opencode-mem's per-project shards).
 - A system-prompt section that tells the model **when to read and when to write**: search at task start and before answering questions about past work; record as soon as a durable fact, preference, or decision settles; never record transient chat details.
 - SQLite storage on `node:sqlite` (zero native dependencies), with a monotonic `SCHEMA_VERSION` and automatic migration.

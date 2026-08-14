@@ -6,9 +6,10 @@
  * @module @deepseek-ai/dsh-mem
  */
 
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
-import type { MemCacheStats, WarmupState } from './types.ts'
+import { existsSync, mkdirSync } from 'node:fs'
+import { writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import type { DownloadState, MemCacheStats, WarmupState } from './types.ts'
 import { catalogModel } from './models.js'
 
 /** Per-convention task prefixes applied when enabled. */
@@ -54,6 +55,8 @@ export class EmbeddingService {
   readonly #cacheHits = new Map<string, { hits: number; lastAt: number }>()
   #hits = 0
   #misses = 0
+  #download: DownloadState | null = null
+  #downloadVersion = 0
 
   constructor(model: string, dimensions: number, cacheDir: string, useTaskPrefixes: boolean) {
     this.#model = model
@@ -93,6 +96,60 @@ export class EmbeddingService {
     this.#hits = 0
     this.#misses = 0
     this.#setWarmup({ state: 'idle', progress: 0, detail: null })
+  }
+
+  /** Current manual-download task snapshot, or null when idle. */
+  get downloadState(): DownloadState | null {
+    return this.#download === null ? null : { ...this.#download }
+  }
+
+  /**
+   * Download one catalog model's files into the local cache layout
+   * (`<cacheDir>/<model-id>/...`) without touching the active pipeline.
+   * @param modelId - catalog model id.
+   * @returns true when the task started; false when a download is already running.
+   */
+  startDownload(modelId: string): boolean {
+    if (this.#download?.state === 'running') return false
+    const version = ++this.#downloadVersion
+    this.#download = { model: modelId, state: 'running', progress: 0, detail: null }
+    void this.#runDownload(modelId, version)
+    return true
+  }
+
+  async #runDownload(modelId: string, version: number): Promise<void> {
+    const set = (patch: Partial<DownloadState>): void => {
+      if (this.#downloadVersion !== version) return
+      this.#download = { ...(this.#download as DownloadState), ...patch }
+    }
+    try {
+      const listResponse = await fetch(`https://huggingface.co/api/models/${modelId}`)
+      if (!listResponse.ok) throw new Error(`model listing failed: HTTP ${listResponse.status}`)
+      const payload = await listResponse.json() as { siblings?: Array<{ rfilename: string }> }
+      const names = new Set((payload.siblings ?? []).map((entry) => entry.rfilename))
+      const wanted: string[] = []
+      for (const file of ['config.json', 'tokenizer.json', 'tokenizer_config.json', 'special_tokens_map.json', 'vocab.txt']) {
+        if (names.has(file)) wanted.push(file)
+      }
+      const onnx = names.has('onnx/model_quantized.onnx') ? 'onnx/model_quantized.onnx' : 'onnx/model.onnx'
+      wanted.push(onnx)
+      let done = 0
+      for (const file of wanted) {
+        set({ detail: file })
+        const response = await fetch(`https://huggingface.co/${modelId}/resolve/main/${file}`)
+        if (!response.ok) throw new Error(`download of ${file} failed: HTTP ${response.status}`)
+        const bytes = new Uint8Array(await response.arrayBuffer())
+        const target = join(this.#cacheDir, modelId, file)
+        mkdirSync(dirname(target), { recursive: true })
+        await writeFile(target, bytes)
+        done += 1
+        set({ progress: done / wanted.length })
+      }
+      set({ state: 'done', progress: 1, detail: null })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      set({ state: 'error', detail: message })
+    }
   }
 
   /**

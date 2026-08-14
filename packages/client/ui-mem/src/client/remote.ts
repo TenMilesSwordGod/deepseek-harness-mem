@@ -13,6 +13,8 @@ import type {
   MemCacheStats,
   MemConfigureRequest,
   MemConfigureResponse,
+  MemDownloadRequest,
+  MemDownloadResponse,
   MemForgetRequest,
   MemForgetResponse,
   MemListAllRequest,
@@ -51,6 +53,15 @@ const memStatusSchema = z.object({
   }),
   reembed: z.union([
     z.object({ state: z.enum(['running', 'done']), done: z.number(), total: z.number() }),
+    z.null(),
+  ]),
+  download: z.union([
+    z.object({
+      model: z.string(),
+      state: z.enum(['running', 'done', 'error']),
+      progress: z.number(),
+      detail: z.union([z.string(), z.null()]),
+    }),
     z.null(),
   ]),
 })
@@ -162,6 +173,13 @@ const memSetEnabledRequestSchema = z.object({ id: z.string(), enabled: z.boolean
 const memSetEnabledResponseSchema = z.object({ id: z.string(), enabled: z.boolean(), updated: z.boolean() })
 
 const memWarmupResponseSchema = z.object({ ready: z.boolean() })
+
+const memDownloadRequestSchema = z.object({ model: z.string() })
+
+const memDownloadResponseSchema = z.object({
+  started: z.boolean(),
+  reason: z.string().optional(),
+})
 
 const memForgetRequestSchema = z.object({ id: z.string() })
 
@@ -277,6 +295,17 @@ export const memoryRemote: TypertRemoteContribution = {
       result: codec('@deepseek-ai/dsh-mem/client#MemReembedResponse', memReembedResponseSchema),
     },
     {
+      id: '@deepseek-ai/dsh-mem#memory/downloadModel',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'downloadModel',
+      invocation: { kind: 'direct' },
+      parameters: [
+        jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemDownloadRequest', memDownloadRequestSchema),
+      ],
+      result: codec('@deepseek-ai/dsh-mem/client#MemDownloadResponse', memDownloadResponseSchema),
+    },
+    {
       id: '@deepseek-ai/dsh-mem#memory/warmup',
       service: 'memory',
       namespace: 'memory',
@@ -337,6 +366,7 @@ export interface MemoryRemoteNamespace {
   status(): Promise<RemoteResult<MemStatus>>
   warmup(): Promise<RemoteResult<MemWarmupResponse>>
   reembed(): Promise<RemoteResult<MemReembedResponse>>
+  downloadModel(request: MemDownloadRequest): Promise<RemoteResult<MemDownloadResponse>>
   models(): Promise<RemoteResult<MemModelsResponse>>
   configure(request: MemConfigureRequest): Promise<RemoteResult<MemConfigureResponse>>
   cacheStats(): Promise<RemoteResult<MemCacheStats>>

@@ -21,6 +21,7 @@ export interface MemActions extends MemStatsActions {
   status(): Promise<RemoteResult<MemStatus>>
   warmup(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemWarmupResponse>>
   reembed(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemReembedResponse>>
+  downloadModel(model: string): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemDownloadResponse>>
   models(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemModelsResponse>>
   configure(model: string): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemConfigureResponse>>
   search(query: string, limit: number): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemSearchResponse>>
@@ -120,6 +121,7 @@ export function MemWidget({
   status,
   warmup,
   reembed,
+  downloadModel,
   models,
   configure,
   cacheStats,
@@ -175,7 +177,8 @@ export function MemWidget({
           if (value !== null) setStatusSnapshot(value)
           const warming = value !== null && (value.warmup.state === 'downloading' || !value.ready)
           const reembedding = value !== null && value.reembed !== null && value.reembed.state === 'running'
-          timer = (warming || reembedding) ? window.setTimeout(poll, WARM_POLL_MS) : null
+          const downloading = value !== null && value.download !== null && value.download.state === 'running'
+          timer = (warming || reembedding || downloading) ? window.setTimeout(poll, WARM_POLL_MS) : null
         })
       }
       timer = window.setTimeout(poll, WARM_POLL_MS)
@@ -372,6 +375,65 @@ export function MemWidget({
                   ))}
                 </select>
               </label>
+            )}
+            {catalog !== null && (
+              <div className="dshmem-model-list">
+                {catalog.map((entry) => {
+                  const dl = statusSnapshot?.download ?? null
+                  const isDownloading = dl !== null && dl.model === entry.id && dl.state === 'running'
+                  const isCurrent = statusSnapshot?.model === entry.id
+                  return (
+                    <div
+                      className="dshmem-model-row"
+                      key={entry.id}
+                      data-current={isCurrent || undefined}
+                      data-cached={entry.cached || undefined}
+                      onClick={() => { if (!isCurrent && !configuring) onModelChange(entry.id) }}
+                    >
+                      <span className="dshmem-model-row-label">{entry.label} · {entry.dims}d</span>
+                      <span className="dshmem-model-row-size">{entry.sizeMb}MB</span>
+                      {isDownloading && dl !== null ? (
+                        <span className="dshmem-model-row-status dshmem-model-row-progress" style={{ width: '96px' }}>
+                          <span className="dshmem-progress" style={{ flex: 1, margin: 0 }}>
+                            <span className="dshmem-progress-fill" style={{ width: `${Math.max(4, Math.round(dl.progress * 100))}%` }} />
+                          </span>
+                          {Math.round(dl.progress * 100)}%
+                        </span>
+                      ) : dl !== null && dl.model === entry.id && dl.state === 'error' ? (
+                        <span className="dshmem-model-row-status dshmem-model-row-error">{t('dlFailed')}</span>
+                      ) : (
+                        <span className="dshmem-model-row-status">{entry.cached ? t('cached') : t('notCached')}</span>
+                      )}
+                      {!entry.cached && !isDownloading && (
+                        <button
+                          type="button"
+                          className="dshmem-model-dlbtn"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            void downloadModel(entry.id).then(() => { void loadStatus(); void loadCatalog() })
+                          }}
+                        >
+                          {t('dlDownload')}
+                        </button>
+                      )}
+                      {!entry.cached && (
+                        <span className="dshmem-tip" tabIndex={0}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M12 8h.01M11 12h1v4h1" />
+                          </svg>
+                          <span className="dshmem-tip-bubble">
+                            <strong>{t('dlTipTitle')}</strong>
+                            <span className="dshmem-tip-path">{entry.id}</span>
+                            <span>{t('dlTipBody')}</span>
+                            <span className="dshmem-tip-files">{t('dlTipFiles')}</span>
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             )}
             {statusSnapshot !== null && (
               <div className="dshmem-cache-tip" key={statusSnapshot.model}>

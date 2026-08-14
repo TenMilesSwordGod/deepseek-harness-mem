@@ -38,6 +38,15 @@ const memStatusSchema = z.object({
     z.object({ state: z.enum(['running', 'done']), done: z.number(), total: z.number() }),
     z.null(),
   ]),
+  download: z.union([
+    z.object({
+      model: z.string(),
+      state: z.enum(['running', 'done', 'error']),
+      progress: z.number(),
+      detail: z.union([z.string(), z.null()]),
+    }),
+    z.null(),
+  ]),
 })
 
 const memModelsResponseSchema = z.object({
@@ -148,6 +157,13 @@ const memSetEnabledResponseSchema = z.object({ id: z.string(), enabled: z.boolea
 
 const memWarmupResponseSchema = z.object({ ready: z.boolean() })
 
+const memDownloadRequestSchema = z.object({ model: z.string() })
+
+const memDownloadResponseSchema = z.object({
+  started: z.boolean(),
+  reason: z.string().optional(),
+})
+
 const memForgetRequestSchema = z.object({ id: z.string() })
 
 const memForgetResponseSchema = z.object({
@@ -253,6 +269,17 @@ const invocations: readonly InvocationDescriptor[] = [
     invocation: { kind: 'direct' },
     parameters: [],
     result: codec('@deepseek-ai/dsh-mem/client#MemReembedResponse', memReembedResponseSchema),
+  },
+  {
+    id: '@deepseek-ai/dsh-mem#memory/downloadModel',
+    service: 'memory',
+    namespace: 'memory',
+    method: 'downloadModel',
+    invocation: { kind: 'direct' },
+    parameters: [
+      jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemDownloadRequest', memDownloadRequestSchema),
+    ],
+    result: codec('@deepseek-ai/dsh-mem/client#MemDownloadResponse', memDownloadResponseSchema),
   },
   {
     id: '@deepseek-ai/dsh-mem#memory/warmup',

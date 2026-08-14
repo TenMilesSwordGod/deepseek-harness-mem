@@ -72,6 +72,15 @@ ctx.plugin({
     console.log('10. setEnabled:', JSON.stringify({ off: off.updated, hiddenHits: hidden.results.length, back: back.updated, visibleHits: visible.results.length }))
     if (hidden.results.some((hit) => hit.id === firstId)) throw new Error('disabled memory still searchable')
     if (!visible.results.some((hit) => hit.id === firstId)) throw new Error('re-enabled memory missing from search')
+
+    // download remote: unknown model rejects; status carries the download slot
+    try {
+      service.downloadModel({ model: 'Xenova/does-not-exist' })
+      throw new Error('unknown model download did not throw')
+    } catch (error) {
+      console.log('11. downloadModel rejects unknown model: ok')
+    }
+    console.log('11b. status.download slot:', service.status().download)
     console.log('SMOKE OK')
     } catch (error) {
       console.error('SMOKE FAIL:', error?.stack ?? error)

@@ -11,6 +11,8 @@ export type {
   MemConfig,
   MemConfigureRequest,
   MemConfigureResponse,
+  MemDownloadRequest,
+  MemDownloadResponse,
   MemForgetRequest,
   MemForgetResponse,
   MemHit,
@@ -37,4 +39,5 @@ export type {
   MemoryScope,
   ReembedState,
   WarmupState,
+  DownloadState,
 } from './types.ts'

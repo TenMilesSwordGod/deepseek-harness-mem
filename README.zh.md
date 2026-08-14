@@ -42,7 +42,7 @@
 | `Xenova/multilingual-e5-small` | 384 | ~120MB | 多语言 | 更轻的多语言备选 |
 | `Xenova/jina-embeddings-v2-small-en` | 512 | ~135MB | 英文 | 长上下文英文 |
 
-所选模型持久化在 SQLite 元数据表中，重启不丢失。优先从本地缓存目录（`<dsh-home>/storages/mem-models/<模型id>`）加载；本地没有时首次使用联网下载。
+所选模型持久化在 SQLite 元数据表中，重启不丢失。优先从本地缓存目录（`<dsh-home>/storages/mem-models/<模型id>`）加载；面板的模型列表为未缓存模型提供**「下载」按钮**（带进度，需可访问 huggingface.co）与**悬停提示**（含手动下载的目录与文件清单）。
 
 ---
 

@@ -42,7 +42,7 @@ All models run locally on CPU. The two smallest are pre-recommended; every switc
 | `Xenova/multilingual-e5-small` | 384 | ~120MB | multilingual | Light multilingual alternative |
 | `Xenova/jina-embeddings-v2-small-en` | 512 | ~135MB | English | Long-context English |
 
-The selected model is persisted in the SQLite meta table and survives restarts. Models are looked up first in the local cache (`<dsh-home>/storages/mem-models/<model-id>`); a missing model is downloaded on first use (requires network).
+The selected model is persisted in the SQLite meta table and survives restarts. Models are looked up first in the local cache (`<dsh-home>/storages/mem-models/<model-id>`); the panel's model list offers a **download button** with progress for uncached models (requires huggingface.co access) plus a **hover tooltip** with the manual-download directory and file list.
 
 ---
 

@@ -33,6 +33,17 @@ export interface WarmupState {
   detail: string | null
 }
 
+/** Manual model-download task state (the widget's download button). */
+export interface DownloadState {
+  /** Model id being downloaded. */
+  model: string
+  state: 'running' | 'done' | 'error'
+  /** Fraction 0..1. */
+  progress: number
+  /** Current file or error detail. */
+  detail: string | null
+}
+
 /** Background re-embed progress after switching to a model with new dimensions. */
 export interface ReembedState {
   state: 'running' | 'done'
@@ -62,6 +73,8 @@ export interface MemStatus {
   warmup: WarmupState
   /** In-flight re-embed task, or null when idle. */
   reembed: ReembedState | null
+  /** Manual model download task, or null when idle. */
+  download: DownloadState | null
 }
 
 /** One catalog entry as seen by the widget (adds the local-cache flag). */
@@ -279,6 +292,19 @@ export interface MemSetEnabledResponse {
 export interface MemWarmupResponse {
   /** True when the embedding pipeline is warm. */
   ready: boolean
+}
+
+/** downloadModel() Remote request/result. */
+export interface MemDownloadRequest {
+  /** Catalog model id to download into the local cache. */
+  model: string
+}
+
+export interface MemDownloadResponse {
+  /** True when the download task started. */
+  started: boolean
+  /** Reason the task did not start (busy or unknown model). */
+  reason?: string
 }
 
 /** All-memories request: paginated, optional scope filter and date sort. */

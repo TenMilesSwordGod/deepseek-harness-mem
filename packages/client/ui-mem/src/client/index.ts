@@ -69,6 +69,7 @@ export async function apply(ctx: ClientContext): Promise<void> {
         status: () => memory.status(),
         warmup: () => memory.warmup(),
         reembed: () => memory.reembed(),
+        downloadModel: (model) => memory.downloadModel({ model }),
         models: () => memory.models(),
         configure: (model) => memory.configure({ model }),
         cacheStats: () => memory.cacheStats(),

@@ -30,6 +30,8 @@ import type {
   MemConfig,
   MemConfigureRequest,
   MemConfigureResponse,
+  MemDownloadRequest,
+  MemDownloadResponse,
   MemForgetRequest,
   MemForgetResponse,
   MemListAllRequest,
@@ -374,7 +376,17 @@ export class MemService extends TypertRemoteService {
       lastActivity: this.activityRing[0] ?? null,
       warmup: this.embedding.warmupState,
       reembed: this.reembedState,
+      download: this.embedding.downloadState,
     }
+  }
+
+  /** Download one catalog model into the local cache (the widget's download button). */
+  @Remote('downloadModel')
+  downloadModel(request: MemDownloadRequest): MemDownloadResponse {
+    const model = resolveText(request.model, 'model', 200)
+    if (catalogModel(model) === undefined) throw new Error(`unknown embedding model ${JSON.stringify(model)}`)
+    const started = this.embedding.startDownload(model)
+    return started ? { started } : { started: false, reason: 'a download is already running' }
   }
 
   /** Catalog plus local-cache flags, and the active model. */

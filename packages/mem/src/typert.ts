@@ -59,7 +59,10 @@ const memConfigureResponseSchema = z.object({
   model: z.string(),
   dimensions: z.number(),
   reembedding: z.boolean(),
+  stale: z.number(),
 })
+
+const memReembedResponseSchema = z.object({ started: z.boolean(), stale: z.number() })
 
 const memSearchRequestSchema = z.object({
   query: z.string(),
@@ -241,6 +244,15 @@ const invocations: readonly InvocationDescriptor[] = [
       jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemListRequest', memListRequestSchema),
     ],
     result: codec('@deepseek-ai/dsh-mem/client#MemListResponse', memListResponseSchema),
+  },
+  {
+    id: '@deepseek-ai/dsh-mem#memory/reembed',
+    service: 'memory',
+    namespace: 'memory',
+    method: 'reembed',
+    invocation: { kind: 'direct' },
+    parameters: [],
+    result: codec('@deepseek-ai/dsh-mem/client#MemReembedResponse', memReembedResponseSchema),
   },
   {
     id: '@deepseek-ai/dsh-mem#memory/warmup',

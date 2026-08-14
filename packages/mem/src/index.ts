@@ -42,6 +42,7 @@ import type {
   MemProjection,
   MemRecordRequest,
   MemRecordResponse,
+  MemReembedResponse,
   MemSearchRequest,
   MemSearchResponse,
   MemStatus,
@@ -386,24 +387,34 @@ export class MemService extends TypertRemoteService {
   }
 
   /**
-   * Switch the active embedding model; a dimension change starts a background
-   * re-embed of stored rows. Persisted in the SQLite meta table so the choice
-   * survives restarts and wins over the cordis config default.
+   * Switch the active embedding model. Persisted in the SQLite meta table so
+   * the choice survives restarts and wins over the cordis config default.
+   * Stored rows under foreign dimensions are NOT re-embedded here — the widget
+   * shows a transform button that calls {@link reembed}.
    */
   @Remote('configure')
   async configure(request: MemConfigureRequest): Promise<MemConfigureResponse> {
     const model = resolveText(request.model, 'model', 200)
     const entry = catalogModel(model)
     if (entry === undefined) throw new Error(`unknown embedding model ${JSON.stringify(model)}`)
-    const dimensionsChanged = entry.dims !== this.embedding.dimensions || model !== this.embedding.model
     this.embedding.switchModel(model, entry.dims)
     this.store.metaSet('embedding_model', model)
-    let reembedding = false
-    if (dimensionsChanged) {
-      reembedding = true
-      void this.startReembed(model)
+    return {
+      model,
+      dimensions: entry.dims,
+      reembedding: false,
+      stale: this.store.staleCount(entry.dims),
     }
-    return { model, dimensions: entry.dims, reembedding }
+  }
+
+  /** Explicitly transform stored memories to the active model (the widget's transform button). */
+  @Remote('reembed')
+  reembed(): MemReembedResponse {
+    const stale = this.store.staleCount(this.embedding.dimensions)
+    if (stale === 0) return { started: false, stale: 0 }
+    if (this.reembedState?.state === 'running') return { started: false, stale }
+    void this.startReembed(this.embedding.model)
+    return { started: true, stale }
   }
 
   /**

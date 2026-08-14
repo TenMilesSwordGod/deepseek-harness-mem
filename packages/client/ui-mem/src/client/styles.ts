@@ -243,6 +243,28 @@ export const memStyles = `
 .dshmem-status-badge[data-state='warming'] { color: var(--dsw-alias-state-warn-primary); }
 .dshmem-status-badge[data-state='error'] { color: var(--dsw-alias-state-error-primary); }
 
+.dshmem-transform-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  margin-top: 8px;
+  border: 1px solid var(--dsw-alias-state-business-primary);
+  border-radius: 8px;
+  background: var(--dsw-alias-state-business-primary);
+  color: var(--dsw-alias-label-primary-foreground);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  animation: dshmem-tip-in 0.35s var(--ds-ease-in-out);
+  transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.dshmem-transform-btn:hover {
+  opacity: 0.88;
+}
+
 .dshmem-progress {
   position: relative;
   height: 3px;

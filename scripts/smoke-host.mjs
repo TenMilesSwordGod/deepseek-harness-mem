@@ -37,13 +37,17 @@ ctx.plugin({
     const s1 = await service.search(fakeAgent('/home/vncuser/workdir'), { query: 'which port does the web gui use', limit: 3 })
     console.log('3. search hit:', s1.results[0]?.content.slice(0, 60), 'sim:', s1.results[0]?.similarity?.toFixed(3))
 
-    // switch to the small CPU model (384d) — must re-embed existing rows
+    // switch to the small CPU model (384d) — no auto re-embed; the transform
+    // button flow: configure leaves rows stale, reembed() migrates them.
     const cfg = await service.configure({ model: 'Xenova/all-MiniLM-L6-v2' })
-    console.log('4. configured:', JSON.stringify(cfg))
-    for (let i = 0; i < 40 && service.status().reembed !== null; i += 1) {
+    console.log('4. configured:', JSON.stringify(cfg), '(stale rows await the transform button)')
+    if (service.status().staleCount === 0) throw new Error('expected stale rows after dimension switch')
+    const re = service.reembed()
+    console.log('4b. reembed started:', re.started, 'stale:', re.stale)
+    for (let i = 0; i < 60 && service.status().reembed !== null; i += 1) {
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
-    console.log('5. after reembed: stale =', service.status().staleCount, 'reembed =', JSON.stringify(service.status().reembed))
+    console.log('5. after transform: stale =', service.status().staleCount, 'reembed =', JSON.stringify(service.status().reembed))
 
     const s2 = await service.search(fakeAgent('/home/vncuser/workdir'), { query: 'embedding model local storage', limit: 3 })
     console.log('6. cross-dim search after re-embed:', s2.results.length > 0 ? s2.results[0].content.slice(0, 60) : 'NO HITS', 'sim:', s2.results[0]?.similarity?.toFixed(3))

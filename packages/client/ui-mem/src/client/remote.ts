@@ -22,6 +22,7 @@ import type {
   MemModelsResponse,
   MemRecordRequest,
   MemRecordResponse,
+  MemReembedResponse,
   MemSearchRequest,
   MemSearchResponse,
   MemSetEnabledRequest,
@@ -73,7 +74,10 @@ const memConfigureResponseSchema = z.object({
   model: z.string(),
   dimensions: z.number(),
   reembedding: z.boolean(),
+  stale: z.number(),
 })
+
+const memReembedResponseSchema = z.object({ started: z.boolean(), stale: z.number() })
 
 const memSearchRequestSchema = z.object({
   query: z.string(),
@@ -264,6 +268,15 @@ export const memoryRemote: TypertRemoteContribution = {
       result: codec('@deepseek-ai/dsh-mem/client#MemConfigureResponse', memConfigureResponseSchema),
     },
     {
+      id: '@deepseek-ai/dsh-mem#memory/reembed',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'reembed',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      result: codec('@deepseek-ai/dsh-mem/client#MemReembedResponse', memReembedResponseSchema),
+    },
+    {
       id: '@deepseek-ai/dsh-mem#memory/warmup',
       service: 'memory',
       namespace: 'memory',
@@ -323,6 +336,7 @@ export const memoryRemote: TypertRemoteContribution = {
 export interface MemoryRemoteNamespace {
   status(): Promise<RemoteResult<MemStatus>>
   warmup(): Promise<RemoteResult<MemWarmupResponse>>
+  reembed(): Promise<RemoteResult<MemReembedResponse>>
   models(): Promise<RemoteResult<MemModelsResponse>>
   configure(request: MemConfigureRequest): Promise<RemoteResult<MemConfigureResponse>>
   cacheStats(): Promise<RemoteResult<MemCacheStats>>

@@ -18,7 +18,7 @@ It gives the coding agent a durable, SQLite-backed memory with local CPU embeddi
 - A system-prompt section that tells the model **when to read and when to write**: search at task start and before answering questions about past work; record as soon as a durable fact, preference, or decision settles; never record transient chat details.
 - SQLite storage on `node:sqlite` (zero native dependencies), with a monotonic `SCHEMA_VERSION` and automatic migration.
 - Local embeddings via `@huggingface/transformers` (ONNX, CPU), with per-model task prefixes (`search_document:`/`search_query:` for nomic, `passage:`/`query:` for e5, none for MiniLM/jina), mean pooling, L2 normalization, and an LRU cache.
-- Automatic **background re-embedding** when you switch to a model with different dimensions — old memories stay searchable once migrated, with live progress.
+- Switching to a model with different dimensions shows a **转换索引 (re-embed) button** — stored memories stay untouched until you click it, then migrate in the background with live progress.
 - Typert Remote API for the widget: `memory/status`, `memory/models`, `memory/configure`, `memory/search`, `memory/record`, `memory/list`, `memory/listAll`, `memory/cacheStats`, `memory/forget`.
 
 **For the human (client plugin `@deepseek-ai/dsh-client-ui-mem`)**

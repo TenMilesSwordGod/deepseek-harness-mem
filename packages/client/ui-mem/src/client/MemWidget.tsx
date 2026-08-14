@@ -20,6 +20,7 @@ import { memStyles } from './styles.ts'
 export interface MemActions extends MemStatsActions {
   status(): Promise<RemoteResult<MemStatus>>
   warmup(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemWarmupResponse>>
+  reembed(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemReembedResponse>>
   models(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemModelsResponse>>
   configure(model: string): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemConfigureResponse>>
   search(query: string, limit: number): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemSearchResponse>>
@@ -82,6 +83,15 @@ function IconTrash(): JSX.Element {
   )
 }
 
+function IconTransform(): JSX.Element {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4v6h6M20 20v-6h-6" />
+      <path d="M4 10a8 8 0 0 1 14-3l2 2M20 14a8 8 0 0 1-14 3l-2-2" />
+    </svg>
+  )
+}
+
 function IconChart(): JSX.Element {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -109,6 +119,7 @@ export function MemWidget({
   t,
   status,
   warmup,
+  reembed,
   models,
   configure,
   cacheStats,
@@ -384,6 +395,18 @@ export function MemWidget({
                   {t('reembedding')} {statusSnapshot.reembed.done}/{statusSnapshot.reembed.total}
                 </span>
               </>
+            )}
+            {statusSnapshot !== null && statusSnapshot.staleCount > 0 && statusSnapshot.reembed?.state !== 'running' && (
+              <button
+                type="button"
+                className="dshmem-transform-btn"
+                onClick={() => {
+                  void reembed().then(() => { void loadStatus() })
+                }}
+              >
+                <IconTransform />
+                {t('transformIndex')}（{statusSnapshot.staleCount}）
+              </button>
             )}
             {dotState === 'warming' && (
               <>

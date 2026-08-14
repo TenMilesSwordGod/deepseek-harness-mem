@@ -24,6 +24,7 @@ export type {
   MemProjection,
   MemRecordRequest,
   MemRecordResponse,
+  MemReembedResponse,
 
   MemSearchRequest,
   MemSearchResponse,

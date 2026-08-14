@@ -18,7 +18,7 @@
 - 系统提示引导，明确告诉模型**何时读、何时写**：任务开始时先搜；回答「过去的做法 / 之前的决定」之前先搜；持久事实（偏好、决策、非显而易见的修复、约定）一经落定就记录；绝不记录临时对话细节。
 - SQLite 存储（`node:sqlite`，零原生依赖），单调递增 `SCHEMA_VERSION`，自动迁移。
 - 本地嵌入（`@huggingface/transformers`，ONNX，CPU），按模型使用正确的任务前缀（nomic 用 `search_document:`/`search_query:`，e5 用 `passage:`/`query:`，MiniLM/jina 不加前缀），mean pooling + L2 归一化 + LRU 缓存。
-- 切换到不同维度的模型时，**后台自动重建全部记忆的索引**，进度实时可见，迁移完成前旧记忆不参与检索、完成后立即可搜。
+- 切换到不同维度的模型时会出现**「转换索引」按钮**——存储的记忆保持原样，点击按钮后才在后台批量转换（进度实时可见），转换完成立即可搜。
 - 供组件调用的 Typert Remote：`memory/status`、`memory/models`、`memory/configure`、`memory/search`、`memory/record`、`memory/list`、`memory/listAll`、`memory/cacheStats`、`memory/forget`。
 
 **给人用（客户端插件 `@deepseek-ai/dsh-client-ui-mem`）**

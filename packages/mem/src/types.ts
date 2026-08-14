@@ -92,8 +92,18 @@ export interface MemConfigureRequest {
 export interface MemConfigureResponse {
   model: string
   dimensions: number
-  /** True when a background re-embed task started (dimension change). */
+  /** Legacy field, always false: re-embedding now waits for the user button. */
   reembedding: boolean
+  /** Memories whose stored dimensions differ from the new model (awaiting the transform button). */
+  stale: number
+}
+
+/** reembed() Remote result: explicitly transform stored memories to the active model. */
+export interface MemReembedResponse {
+  /** True when a re-embed task actually started. */
+  started: boolean
+  /** Stale rows remaining after the call (0 when none needed or already running). */
+  stale: number
 }
 
 /** One ranked search hit. */

@@ -304,6 +304,8 @@ export class MemService extends TypertRemoteService {
                 },
               },
             },
+            scope: { type: 'string', enum: ['project', 'global'], required: true },
+            project: { oneOf: [{ type: 'string' }, { type: 'null' }], required: true },
           },
         },
         render: (args, value: MemSearchResponse) => [{

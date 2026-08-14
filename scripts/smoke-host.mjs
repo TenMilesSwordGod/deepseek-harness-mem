@@ -4,6 +4,7 @@
  * the harness server.
  */
 import { Context } from '@deepseek-ai/cordis'
+import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools'
 import { createServer } from 'node:http'
 import { existsSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
@@ -61,11 +62,14 @@ function fakeHfServer() {
 
 const dbPath = '/home/vncuser/workdir/dsh-mem/.shots/memtest.sqlite'
 
+/** Tools captured from the registry stub for end-to-end tool validation. */
+const capturedTools = []
+
 const ctx = new Context()
 ctx.plugin({
   name: 'stub-tools',
   apply: (c) => {
-    c.provide('tools', { register: () => () => {} })
+    c.provide('tools', { register: (tool) => { capturedTools.push(tool); return () => {} } })
     c.provide('systemPrompt', { section: () => {} })
     c.provide('agents', { get: () => undefined, currentInitiator: () => undefined, roots: () => [] })
   },
@@ -128,6 +132,29 @@ ctx.plugin({
 
     // download remote: status carries the download slot
     console.log('11. status.download slot:', service.status().download)
+
+    // ── model-facing tools: execute + validate against their output schema ──
+    // (the same validation the registry runs; catches INVALID_TOOL_OUTPUT bugs)
+    {
+      const exec = { agent: fakeAgent('/home/vncuser/workdir') }
+      const recordTool = capturedTools.find((tool) => tool.name === 'mem_record')
+      const searchTool = capturedTools.find((tool) => tool.name === 'mem_search')
+      const forgetTool = capturedTools.find((tool) => tool.name === 'mem_forget')
+      if (recordTool === undefined || searchTool === undefined || forgetTool === undefined) throw new Error('mem tools not registered')
+      const validate = (tool, value) => {
+        const violations = validateJsonSchemaValue(tool.output.schema, value)
+        if (violations.length > 0) throw new Error(`${tool.name} output invalid: ${violations.join('; ')}`)
+      }
+      const recorded = await recordTool.execute({ content: 'smoke tool test: prefer uv for python tooling', tags: 'python,tool', scope: 'project' }, exec)
+      validate(recordTool, recorded)
+      const searched = await searchTool.execute({ query: 'python tooling', limit: 3, scope: 'project' }, exec)
+      validate(searchTool, searched)
+      if (!searched.results.some((hit) => hit.id === recorded.id)) throw new Error('tool search did not find the just-recorded memory')
+      const forgotten = await forgetTool.execute({ memory_id: recorded.id }, exec)
+      validate(forgetTool, forgotten)
+      if (!forgotten.forgotten) throw new Error('tool forget failed')
+      console.log('11b. tools execute + output schemas validate (record/search/forget)')
+    }
 
     // ── download / cancel / failure tests against a local fake HF server ──
     // Driven through EmbeddingService directly (the download logic's home):

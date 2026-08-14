@@ -59,7 +59,7 @@ function fakeHfServer() {
   })
 }
 
-const dbPath = '/home/vncuser/workdir/simplemem/.shots/memtest.sqlite'
+const dbPath = '/home/vncuser/workdir/dsh-mem/.shots/memtest.sqlite'
 
 const ctx = new Context()
 ctx.plugin({
@@ -134,7 +134,7 @@ ctx.plugin({
     // the Remotes are thin wrappers already covered by the face registration.
     {
       const { server, port } = await fakeHfServer()
-      const dlCache = '/home/vncuser/workdir/simplemem/.shots/dl-cache'
+      const dlCache = '/home/vncuser/workdir/dsh-mem/.shots/dl-cache'
       rmSync(dlCache, { recursive: true, force: true })
       try {
         const dl = new EmbeddingService('Xenova/nomic-embed-text-v1', 768, dlCache, false, `http://127.0.0.1:${port}`)

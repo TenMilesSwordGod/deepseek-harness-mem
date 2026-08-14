@@ -12,7 +12,7 @@ It gives the coding agent a durable, SQLite-backed memory with local CPU embeddi
 
 ## Features
 
-**For the agent (host plugin `simplemem`)**
+**For the agent (host plugin `@deepseek-ai/dsh-simplemem`)**
 
 - `mem_record` / `mem_search` / `mem_forget` tools with deduplication and `project` / `global` scoping (project = the session's working-directory tree, mirroring opencode-mem's per-project shards).
 - A system-prompt section that tells the model **when to read and when to write**: search at task start and before answering questions about past work; record as soon as a durable fact, preference, or decision settles; never record transient chat details.
@@ -21,7 +21,7 @@ It gives the coding agent a durable, SQLite-backed memory with local CPU embeddi
 - Switching to a model with different dimensions shows a **转换索引 (re-embed) button** — stored memories stay untouched until you click it, then migrate in the background with live progress.
 - Typert Remote API for the widget: `memory/status`, `memory/models`, `memory/configure`, `memory/search`, `memory/record`, `memory/list`, `memory/listAll`, `memory/cacheStats`, `memory/forget`.
 
-**For the human (client plugin `simplemem-web`)**
+**For the human (client plugin `@deepseek-ai/dsh-client-ui-simplemem`)**
 
 - A pill button in the top-right header (`conversation.session.header.utilities`): state dot (ready / warming / error) + memory count.
 - Panel: backend status, **embedding model selector**, cache tip, quick semantic search with similarity scores, manual record, per-item delete, and a strategy hint.
@@ -52,7 +52,7 @@ One command into your profile (default: `~/.dsh/profiles/web`):
 
 ```sh
 git clone https://github.com/TenMilesSwordGod/simplemem.git
-cd deepseek-harness-mem
+cd simplemem
 ./scripts/quick-deploy.sh                 # or: ./scripts/quick-deploy.sh ~/.dsh/profiles/web
 ```
 
@@ -86,8 +86,8 @@ Requirements: Node ≥ 22.5 (uses `node:sqlite`), a DeepSeek Harness profile (th
    ```json
    {
      "dependencies": {
-       "simplemem": "file:/path/to/deepseek-harness-mem/packages/mem",
-       "simplemem-web": "file:/path/to/deepseek-harness-mem/packages/client/ui-mem"
+       "@deepseek-ai/dsh-simplemem": "file:/path/to/simplemem/packages/mem",
+       "@deepseek-ai/dsh-client-ui-simplemem": "file:/path/to/simplemem/packages/client/ui-mem"
      }
    }
    ```
@@ -97,13 +97,13 @@ Requirements: Node ≥ 22.5 (uses `node:sqlite`), a DeepSeek Harness profile (th
    ```yaml
    - insert:
        - id: mem
-         name: 'simplemem'
+         name: '@deepseek-ai/dsh-simplemem'
          config:
            embeddingModel: Xenova/nomic-embed-text-v1
            embeddingDimensions: 768
            warmupOnBoot: false
        - id: ui-mem
-         name: 'simplemem-web'
+         name: '@deepseek-ai/dsh-client-ui-simplemem'
    ```
 
 4. Install and start (the **one-time** restart new packages require):

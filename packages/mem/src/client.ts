@@ -1,8 +1,8 @@
 /**
  * Client-side type outlet for the memory domain: the widget imports these
- * types from `simplemem/client`. Type-only module — the runtime
+ * types from `@deepseek-ai/dsh-simplemem/client`. Type-only module — the runtime
  * artifact is empty and never reaches the browser graph.
- * @module simplemem/client
+ * @module @deepseek-ai/dsh-simplemem/client
  */
 
 export type {

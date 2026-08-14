@@ -12,7 +12,7 @@
 
 ## 功能
 
-**给 Agent 用（宿主插件 `simplemem`）**
+**给 Agent 用（宿主插件 `@deepseek-ai/dsh-simplemem`）**
 
 - `mem_record` / `mem_search` / `mem_forget` 三个工具，带去重和 `project` / `global` 作用域（project = 会话所在工作目录树，对应 opencode-mem 的按项目分片）。
 - 系统提示引导，明确告诉模型**何时读、何时写**：任务开始时先搜；回答「过去的做法 / 之前的决定」之前先搜；持久事实（偏好、决策、非显而易见的修复、约定）一经落定就记录；绝不记录临时对话细节。
@@ -21,7 +21,7 @@
 - 切换到不同维度的模型时会出现**「转换索引」按钮**——存储的记忆保持原样，点击按钮后才在后台批量转换（进度实时可见），转换完成立即可搜。
 - 供组件调用的 Typert Remote：`memory/status`、`memory/models`、`memory/configure`、`memory/search`、`memory/record`、`memory/list`、`memory/listAll`、`memory/cacheStats`、`memory/forget`。
 
-**给人用（客户端插件 `simplemem-web`）**
+**给人用（客户端插件 `@deepseek-ai/dsh-client-ui-simplemem`）**
 
 - 顶部右上角胶囊按钮（挂载于 `conversation.session.header.utilities`）：状态圆点（就绪/加载中/出错）+ 记忆总数。
 - 面板：后端状态、**嵌入模型选择器**、缓存提示、语义快速搜索（带相似度分数）、手动记录、逐条删除、读写策略说明。
@@ -52,7 +52,7 @@
 
 ```sh
 git clone https://github.com/TenMilesSwordGod/simplemem.git
-cd deepseek-harness-mem
+cd simplemem
 ./scripts/quick-deploy.sh                 # 或：./scripts/quick-deploy.sh ~/.dsh/profiles/web
 ```
 
@@ -84,8 +84,8 @@ install`（跳过无用的 CUDA 二进制）。之后**重启一次 `dsh web`**�
    ```json
    {
      "dependencies": {
-       "simplemem": "file:/path/to/deepseek-harness-mem/packages/mem",
-       "simplemem-web": "file:/path/to/deepseek-harness-mem/packages/client/ui-mem"
+       "@deepseek-ai/dsh-simplemem": "file:/path/to/simplemem/packages/mem",
+       "@deepseek-ai/dsh-client-ui-simplemem": "file:/path/to/simplemem/packages/client/ui-mem"
      }
    }
    ```
@@ -95,13 +95,13 @@ install`（跳过无用的 CUDA 二进制）。之后**重启一次 `dsh web`**�
    ```yaml
    - insert:
        - id: mem
-         name: 'simplemem'
+         name: '@deepseek-ai/dsh-simplemem'
          config:
            embeddingModel: Xenova/nomic-embed-text-v1
            embeddingDimensions: 768
            warmupOnBoot: false
        - id: ui-mem
-         name: 'simplemem-web'
+         name: '@deepseek-ai/dsh-client-ui-simplemem'
    ```
 
 4. 安装并启动（新包所需的**唯一一次**重启）：

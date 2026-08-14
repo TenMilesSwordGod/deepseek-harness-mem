@@ -3,7 +3,7 @@
  * Shows overview cards, the full memory list (paginated, scope-filtered,
  * date-sortable), and the embedding cache hit ranking (sortable by hits).
  * Standalone overlay dialog — it never renders inside the quick panel body.
- * @module simplemem-web
+ * @module @deepseek-ai/dsh-client-ui-simplemem
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -16,7 +16,7 @@ import type {
   MemListAllResponse,
   MemRecordResponse,
   MemSetEnabledResponse,
-} from 'simplemem/client'
+} from '@deepseek-ai/dsh-simplemem/client'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 
 /** Stats verbs shared with the widget's inject face. */

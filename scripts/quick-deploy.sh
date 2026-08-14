@@ -49,12 +49,12 @@ const [file, memPkg, uiPkg] = process.argv.slice(2)
 const pkg = JSON.parse(fs.readFileSync(file, 'utf8'))
 pkg.dependencies ??= {}
 let changed = false
-if (pkg.dependencies['simplemem'] !== memPkg) {
-  pkg.dependencies['simplemem'] = memPkg
+if (pkg.dependencies['@deepseek-ai/dsh-simplemem'] !== memPkg) {
+  pkg.dependencies['@deepseek-ai/dsh-simplemem'] = memPkg
   changed = true
 }
-if (pkg.dependencies['simplemem-web'] !== uiPkg) {
-  pkg.dependencies['simplemem-web'] = uiPkg
+if (pkg.dependencies['@deepseek-ai/dsh-client-ui-simplemem'] !== uiPkg) {
+  pkg.dependencies['@deepseek-ai/dsh-client-ui-simplemem'] = uiPkg
   changed = true
 }
 fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`)
@@ -67,13 +67,13 @@ BLOCK='# simplemem: SQLite-backed semantic memory (host service + tools)
 # and the top-right header widget (client UI plugin).
 - insert:
     - id: mem
-      name: '"'"'simplemem'"'"'
+      name: '"'"'@deepseek-ai/dsh-simplemem'"'"'
       config:
         embeddingModel: Xenova/nomic-embed-text-v1
         embeddingDimensions: 768
         warmupOnBoot: false
     - id: ui-mem
-      name: '"'"'simplemem-web'"'"''
+      name: '"'"'@deepseek-ai/dsh-client-ui-simplemem'"'"''
 
 node - "$PATCH_FILE" "$BLOCK" <<'NODE'
 const fs = require('node:fs')

@@ -3,7 +3,7 @@
  * face model the repo generator emits, authored here because this plugin
  * lives outside the monorepo build. Mirrors @deepseek-ai/simplemem's Remote
  * methods (status / search / record / list / forget).
- * @module simplemem-web
+ * @module @deepseek-ai/dsh-client-ui-simplemem
  */
 
 import { z } from 'zod'
@@ -32,7 +32,7 @@ import type {
   MemSetEnabledResponse,
   MemStatus,
   MemWarmupResponse,
-} from 'simplemem/client'
+} from '@deepseek-ai/dsh-simplemem/client'
 
 const sessionIdCodec = { mode: 'strict' as const, typeSymbol: '@deepseek-ai/dsh-session/types#SessionId', schema: z.intersection(z.string(), z.unknown()) }
 
@@ -218,19 +218,19 @@ const sessionParam = {
 
 /** The memory namespace consumer-side contract, mounted by this plugin. */
 export const memoryRemote: TypertRemoteContribution = {
-  package: 'simplemem',
+  package: '@deepseek-ai/dsh-simplemem',
   descriptors: [
     {
-      id: 'simplemem#memory/status',
+      id: '@deepseek-ai/dsh-simplemem#memory/status',
       service: 'memory',
       namespace: 'memory',
       method: 'status',
       invocation: { kind: 'direct' },
       parameters: [],
-      result: codec('simplemem/client#MemStatus', memStatusSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemStatus', memStatusSchema),
     },
     {
-      id: 'simplemem#memory/search',
+      id: '@deepseek-ai/dsh-simplemem#memory/search',
       service: 'memory',
       namespace: 'memory',
       method: 'search',
@@ -238,12 +238,12 @@ export const memoryRemote: TypertRemoteContribution = {
       scope: { context: 'agent', wire: 'agentId' },
       parameters: [
         sessionParam,
-        jsonParam('request', 'request', 'simplemem/client#MemSearchRequest', memSearchRequestSchema),
+        jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemSearchRequest', memSearchRequestSchema),
       ],
-      result: codec('simplemem/client#MemSearchResponse', memSearchResponseSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemSearchResponse', memSearchResponseSchema),
     },
     {
-      id: 'simplemem#memory/record',
+      id: '@deepseek-ai/dsh-simplemem#memory/record',
       service: 'memory',
       namespace: 'memory',
       method: 'record',
@@ -251,12 +251,12 @@ export const memoryRemote: TypertRemoteContribution = {
       scope: { context: 'agent', wire: 'agentId' },
       parameters: [
         sessionParam,
-        jsonParam('request', 'request', 'simplemem/client#MemRecordRequest', memRecordRequestSchema),
+        jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemRecordRequest', memRecordRequestSchema),
       ],
-      result: codec('simplemem/client#MemRecordResponse', memRecordResponseSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemRecordResponse', memRecordResponseSchema),
     },
     {
-      id: 'simplemem#memory/list',
+      id: '@deepseek-ai/dsh-simplemem#memory/list',
       service: 'memory',
       namespace: 'memory',
       method: 'list',
@@ -264,90 +264,90 @@ export const memoryRemote: TypertRemoteContribution = {
       scope: { context: 'agent', wire: 'agentId' },
       parameters: [
         sessionParam,
-        jsonParam('request', 'request', 'simplemem/client#MemListRequest', memListRequestSchema),
+        jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemListRequest', memListRequestSchema),
       ],
-      result: codec('simplemem/client#MemListResponse', memListResponseSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemListResponse', memListResponseSchema),
     },
     {
-      id: 'simplemem#memory/models',
+      id: '@deepseek-ai/dsh-simplemem#memory/models',
       service: 'memory',
       namespace: 'memory',
       method: 'models',
       invocation: { kind: 'direct' },
       parameters: [],
-      result: codec('simplemem/client#MemModelsResponse', memModelsResponseSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemModelsResponse', memModelsResponseSchema),
     },
     {
-      id: 'simplemem#memory/configure',
+      id: '@deepseek-ai/dsh-simplemem#memory/configure',
       service: 'memory',
       namespace: 'memory',
       method: 'configure',
       invocation: { kind: 'direct' },
       parameters: [
-        jsonParam('request', 'request', 'simplemem/client#MemConfigureRequest', memConfigureRequestSchema),
+        jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemConfigureRequest', memConfigureRequestSchema),
       ],
-      result: codec('simplemem/client#MemConfigureResponse', memConfigureResponseSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemConfigureResponse', memConfigureResponseSchema),
     },
     {
-      id: 'simplemem#memory/reembed',
+      id: '@deepseek-ai/dsh-simplemem#memory/reembed',
       service: 'memory',
       namespace: 'memory',
       method: 'reembed',
       invocation: { kind: 'direct' },
       parameters: [],
-      result: codec('simplemem/client#MemReembedResponse', memReembedResponseSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemReembedResponse', memReembedResponseSchema),
     },
     {
-      id: 'simplemem#memory/downloadModel',
+      id: '@deepseek-ai/dsh-simplemem#memory/downloadModel',
       service: 'memory',
       namespace: 'memory',
       method: 'downloadModel',
       invocation: { kind: 'direct' },
       parameters: [
-        jsonParam('request', 'request', 'simplemem/client#MemDownloadRequest', memDownloadRequestSchema),
+        jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemDownloadRequest', memDownloadRequestSchema),
       ],
-      result: codec('simplemem/client#MemDownloadResponse', memDownloadResponseSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemDownloadResponse', memDownloadResponseSchema),
     },
     {
-      id: 'simplemem#memory/cancelDownload',
+      id: '@deepseek-ai/dsh-simplemem#memory/cancelDownload',
       service: 'memory',
       namespace: 'memory',
       method: 'cancelDownload',
       invocation: { kind: 'direct' },
       parameters: [],
-      result: codec('simplemem/client#MemCancelDownloadResponse', memCancelDownloadResponseSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemCancelDownloadResponse', memCancelDownloadResponseSchema),
     },
     {
-      id: 'simplemem#memory/warmup',
+      id: '@deepseek-ai/dsh-simplemem#memory/warmup',
       service: 'memory',
       namespace: 'memory',
       method: 'warmup',
       invocation: { kind: 'direct' },
       parameters: [],
-      result: codec('simplemem/client#MemWarmupResponse', memWarmupResponseSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemWarmupResponse', memWarmupResponseSchema),
     },
     {
-      id: 'simplemem#memory/setEnabled',
+      id: '@deepseek-ai/dsh-simplemem#memory/setEnabled',
       service: 'memory',
       namespace: 'memory',
       method: 'setEnabled',
       invocation: { kind: 'direct' },
       parameters: [
-        jsonParam('request', 'request', 'simplemem/client#MemSetEnabledRequest', memSetEnabledRequestSchema),
+        jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemSetEnabledRequest', memSetEnabledRequestSchema),
       ],
-      result: codec('simplemem/client#MemSetEnabledResponse', memSetEnabledResponseSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemSetEnabledResponse', memSetEnabledResponseSchema),
     },
     {
-      id: 'simplemem#memory/cacheStats',
+      id: '@deepseek-ai/dsh-simplemem#memory/cacheStats',
       service: 'memory',
       namespace: 'memory',
       method: 'cacheStats',
       invocation: { kind: 'direct' },
       parameters: [],
-      result: codec('simplemem/client#MemCacheStats', memCacheStatsSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemCacheStats', memCacheStatsSchema),
     },
     {
-      id: 'simplemem#memory/listAll',
+      id: '@deepseek-ai/dsh-simplemem#memory/listAll',
       service: 'memory',
       namespace: 'memory',
       method: 'listAll',
@@ -355,20 +355,20 @@ export const memoryRemote: TypertRemoteContribution = {
       scope: { context: 'agent', wire: 'agentId' },
       parameters: [
         sessionParam,
-        jsonParam('request', 'request', 'simplemem/client#MemListAllRequest', memListAllRequestSchema),
+        jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemListAllRequest', memListAllRequestSchema),
       ],
-      result: codec('simplemem/client#MemListAllResponse', memListAllResponseSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemListAllResponse', memListAllResponseSchema),
     },
     {
-      id: 'simplemem#memory/forget',
+      id: '@deepseek-ai/dsh-simplemem#memory/forget',
       service: 'memory',
       namespace: 'memory',
       method: 'forget',
       invocation: { kind: 'direct' },
       parameters: [
-        jsonParam('request', 'request', 'simplemem/client#MemForgetRequest', memForgetRequestSchema),
+        jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemForgetRequest', memForgetRequestSchema),
       ],
-      result: codec('simplemem/client#MemForgetResponse', memForgetResponseSchema),
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemForgetResponse', memForgetResponseSchema),
     },
   ],
 }

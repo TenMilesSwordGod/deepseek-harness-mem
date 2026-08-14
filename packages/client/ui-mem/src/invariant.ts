@@ -1,8 +1,8 @@
 /**
- * Package-owned invariant companion for `simplemem-web`.
+ * Package-owned invariant companion for `@deepseek-ai/dsh-client-ui-simplemem`.
  * External deployments do not run the harness invariant registry over
  * profile plugins, so the companion only re-exports the package identity.
- * @module simplemem-web/invariant
+ * @module @deepseek-ai/dsh-client-ui-simplemem/invariant
  */
 
 /** Package the companion owns. */

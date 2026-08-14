@@ -1,7 +1,7 @@
 /**
  * Widget dictionaries: Chinese is the source-of-truth key set (product copy
  * is Chinese), English is the fallback translation.
- * @module simplemem-web
+ * @module @deepseek-ai/dsh-client-ui-simplemem
  */
 
 export const zh = {

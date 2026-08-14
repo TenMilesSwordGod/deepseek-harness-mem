@@ -75,17 +75,27 @@ BLOCK='# deepseek-harness-mem: SQLite-backed semantic memory (host service + too
     - id: ui-mem
       name: '"'"'@deepseek-ai/dsh-client-ui-mem'"'"''
 
-if grep -q "deepseek-harness-mem:" "$PATCH_FILE" 2>/dev/null; then
-  echo "    cordis.patch.yml unchanged (rows already present)"
-else
-  if [[ "$(grep -c '^\[\]$' "$PATCH_FILE" || true)" -eq 1 ]] && [[ "$(wc -l < "$PATCH_FILE")" -le 2 ]]; then
-    # File is the empty profile root: replace the empty array.
-    printf '%s\n' "$BLOCK" > "$PATCH_FILE"
-  else
-    printf '\n%s\n' "$BLOCK" >> "$PATCH_FILE"
-  fi
-  echo "    cordis.patch.yml updated"
-fi
+node - "$PATCH_FILE" "$BLOCK" <<'NODE'
+const fs = require('node:fs')
+const [file, block] = process.argv.slice(2)
+let text = fs.readFileSync(file, 'utf8')
+const hasBlock = text.includes('deepseek-harness-mem:')
+// Always drop a standalone empty-array root line (`[]` ends the YAML
+// document; appending after it is invalid). This also self-heals files
+// broken by earlier script versions.
+const lines = text.split('\n')
+const idx = lines.findIndex((line) => /^\[\]\s*$/.test(line))
+if (idx !== -1) {
+  text = [...lines.slice(0, idx), ...lines.slice(idx + 1)].join('\n')
+}
+if (hasBlock) {
+  fs.writeFileSync(file, text)
+  console.log('    cordis.patch.yml unchanged (rows already present; stray [] line removed)')
+} else {
+  fs.writeFileSync(file, `${text.replace(/\s+$/, '')}\n\n${block}\n`)
+  console.log('    cordis.patch.yml updated')
+}
+NODE
 
 # 3. install (skip unused CUDA binaries of onnxruntime-node)
 if command -v pnpm >/dev/null 2>&1; then

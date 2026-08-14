@@ -89,36 +89,6 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
     }
   }, [listAll])
 
-  // Open: load cache stats + first list page; close on Escape / mask click.
-  useEffect(() => {
-    if (!open) return
-    void cacheStats().then((result) => {
-      const value = unwrap(result)
-      if (value !== null) setCache(value)
-    })
-    void loadList(1, 'all', 'createdAtDesc')
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open, cacheStats, loadList, onClose])
-
-  if (!open) return null
-
-  const onScope = (next: ScopeFilter): void => {
-    setScope(next)
-    void loadList(1, next, dateSort)
-  }
-
-  const onDateSort = (): void => {
-    const next: DateSort = dateSort === 'createdAtDesc' ? 'createdAtAsc' : 'createdAtDesc'
-    setDateSort(next)
-    void loadList(page, scope, next)
-  }
-
   const reload = useCallback(() => {
     void loadList(page, scope, dateSort)
     void cacheStats().then((result) => {
@@ -157,6 +127,37 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
       }
     })
   }, [forget])
+
+  // Open: load cache stats + first list page; close on Escape / mask click.
+  useEffect(() => {
+    if (!open) return
+    void cacheStats().then((result) => {
+      const value = unwrap(result)
+      if (value !== null) setCache(value)
+    })
+    void loadList(1, 'all', 'createdAtDesc')
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open, cacheStats, loadList, onClose])
+
+  // Every hook is above this line: the early return must not change hook order.
+  if (!open) return null
+
+  const onScope = (next: ScopeFilter): void => {
+    setScope(next)
+    void loadList(1, next, dateSort)
+  }
+
+  const onDateSort = (): void => {
+    const next: DateSort = dateSort === 'createdAtDesc' ? 'createdAtAsc' : 'createdAtDesc'
+    setDateSort(next)
+    void loadList(page, scope, next)
+  }
 
   const sortedCacheTop = cache === null ? [] : [...cache.top].sort((a, b) =>
     hitsSort === 'hitsDesc' ? b.hits - a.hits || b.lastAt - a.lastAt : a.hits - b.hits || b.lastAt - a.lastAt)

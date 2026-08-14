@@ -45,7 +45,28 @@ The selected model is persisted in the SQLite meta table and survives restarts. 
 
 ---
 
-## Install into a harness profile
+## Quick deploy
+
+One command into your profile (default: `~/.dsh/profiles/web`):
+
+```sh
+git clone https://github.com/TenMilesSwordGod/deepseek-harness-mem.git
+cd deepseek-harness-mem
+./scripts/quick-deploy.sh                 # or: ./scripts/quick-deploy.sh ~/.dsh/profiles/web
+```
+
+The script (idempotent — safe to re-run) adds both packages to the profile's
+`package.json`, registers the two rows in `cordis.patch.yml`, and runs
+`pnpm install` (CUDA binaries skipped). Then **restart `dsh web` once**, open
+the GUI, refresh, and click **记忆** in the top-right corner. No further
+restarts are ever needed.
+
+Pre-built `lib/` artifacts are committed, so no build step is required on
+your machine.
+
+---
+
+## Install into a harness profile (manual)
 
 Requirements: Node ≥ 22.5 (uses `node:sqlite`), a DeepSeek Harness profile (this plugin was built against `@deepseek-ai/dsh-*` `0.1.0-rc.6`), pnpm.
 

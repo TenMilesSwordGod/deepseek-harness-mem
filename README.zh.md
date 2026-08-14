@@ -45,7 +45,26 @@
 
 ---
 
-## 安装到 profile
+## 快速部署
+
+克隆后跑一条命令（默认部署到 `~/.dsh/profiles/web`）：
+
+```sh
+git clone https://github.com/TenMilesSwordGod/deepseek-harness-mem.git
+cd deepseek-harness-mem
+./scripts/quick-deploy.sh                 # 或：./scripts/quick-deploy.sh ~/.dsh/profiles/web
+```
+
+脚本（幂等，可重复执行）会：把两个包写进 profile 的 `package.json` 依赖、在
+`cordis.patch.yml` 里注册 `mem` 与 `ui-mem` 两行、执行 `pnpm install`
+（跳过无用的 CUDA 二进制）。之后**重启一次 `dsh web`**，打开界面刷新，
+点击右上角「记忆」即可。此后再也不需要任何重启。
+
+仓库已附带构建产物 `lib/`，你的机器上无需构建步骤。
+
+---
+
+## 安装到 profile（手动）
 
 要求：Node ≥ 22.5（依赖 `node:sqlite`）、一个 DeepSeek Harness profile（本插件基于 `@deepseek-ai/dsh-*` `0.1.0-rc.6` 构建）、pnpm。
 

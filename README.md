@@ -5,6 +5,8 @@
 It gives the coding agent a durable, SQLite-backed memory with local CPU embeddings, and adds a small **memory widget to the top-right of the web GUI**: live status, quick semantic search, one-click recording, model switching — with fluent animations whenever the AI reads or writes memory.
 
 > Community project. Not affiliated with or endorsed by DeepSeek. The package names follow the harness naming convention (`@deepseek-ai/dsh-*`) so they slot into a profile unchanged; these packages are **not published to npm**.
+>
+> 中文文档：[README.zh.md](README.zh.md)
 
 ---
 

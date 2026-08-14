@@ -261,6 +261,8 @@ export function MemWidget({
     })
   }, [configuring, configure, loadStatus, loadCatalog])
 
+  const closeStats = useCallback(() => { setStatsOpen(false) }, [])
+
   const submitRecord = useCallback(() => {
     const content = recordDraft.trim()
     if (content === '' || recording) return
@@ -561,7 +563,7 @@ export function MemWidget({
 
       <MemStatsModal
         open={statsOpen}
-        onClose={() => { setStatsOpen(false) }}
+        onClose={closeStats}
         t={t}
         cacheStats={cacheStats}
         listAll={listAll}

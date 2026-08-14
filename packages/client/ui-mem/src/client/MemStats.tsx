@@ -53,6 +53,14 @@ function IconTrash(): JSX.Element {
   )
 }
 
+function IconSpinner(): JSX.Element {
+  return (
+    <svg className="dshmem-search-spinner" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+      <path d="M21 12a9 9 0 1 1-6.2-8.56" />
+    </svg>
+  )
+}
+
 function IconClose(): JSX.Element {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -79,6 +87,8 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const loadList = useCallback(async (targetPage: number, targetScope: ScopeFilter, targetSort: DateSort) => {
+    // Keep the previous rows visible while loading: clearing them here made
+    // the table collapse and re-expand (the flicker/jump on open and paging).
     setLoading(true)
     const value = unwrap(await listAll({ scope: targetScope, sort: targetSort, page: targetPage, pageSize: PAGE_SIZE }))
     setLoading(false)
@@ -239,6 +249,7 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
         <div className="dshmem-stats-section">
           <div className="dshmem-stats-section-head">
             <span className="dshmem-stats-section-title">{t('statsMemories')}</span>
+            {loading && <IconSpinner />}
             <div className="dshmem-stats-tabs">
               {(['all', 'project', 'global'] as const).map((key) => (
                 <button
@@ -267,7 +278,6 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
             {items.length === 0 && !loading && (
               <div className="dshmem-stats-empty">{t('statsEmpty')}</div>
             )}
-            {loading && <div className="dshmem-stats-empty">{t('statsLoading')}</div>}
             {items.map((item) => (
               <div className="dshmem-stats-row" key={item.id} data-disabled={!item.enabled || undefined}>
                 <span className="dshmem-stats-col-content" title={item.content}>{item.content}</span>

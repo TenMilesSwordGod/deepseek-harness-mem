@@ -649,6 +649,11 @@ export const memStyles = `
   white-space: nowrap;
 }
 
+@keyframes dshmem-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @keyframes dshmem-tip-in {
   from { opacity: 0; transform: translateX(-4px); }
   to { opacity: 1; transform: translateX(0); }
@@ -781,7 +786,7 @@ export const memStyles = `
   display: flex;
   flex-direction: column;
   width: min(720px, 100%);
-  max-height: min(640px, 100%);
+  height: min(560px, calc(100% - 64px));
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 12px;
   background: var(--dsw-alias-bg-layer-2);
@@ -822,7 +827,7 @@ export const memStyles = `
   border: 1px solid var(--dsw-alias-border-l1);
   border-radius: 10px;
   background: var(--dsw-alias-bg-layer-1);
-  animation: dshmem-item-in 0.24s var(--ds-ease-in-out) both;
+  animation: dshmem-fade-in 0.2s var(--ds-ease-in-out) both;
 }
 
 .dshmem-stats-card-value {
@@ -840,8 +845,17 @@ export const memStyles = `
 .dshmem-stats-section {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
   padding: 10px 16px 12px;
+}
+
+.dshmem-stats-section:first-of-type {
+  flex-grow: 3;
+}
+
+.dshmem-stats-section:last-of-type {
+  flex-grow: 2;
 }
 
 .dshmem-stats-section + .dshmem-stats-section {
@@ -906,7 +920,8 @@ export const memStyles = `
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 224px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   border: 1px solid var(--dsw-alias-border-l1);
   border-radius: 10px;
@@ -922,7 +937,7 @@ export const memStyles = `
   border-radius: 6px;
   font-size: 12px;
   color: var(--dsw-alias-label-secondary);
-  animation: dshmem-item-in 0.2s var(--ds-ease-in-out) both;
+  animation: dshmem-fade-in 0.18s var(--ds-ease-in-out) both;
 }
 
 .dshmem-stats-row:not(.dshmem-stats-row-head):hover {
@@ -1043,6 +1058,7 @@ export const memStyles = `
   justify-content: flex-end;
   gap: 10px;
   margin-top: 8px;
+  flex: none;
 }
 
 .dshmem-stats-pager button {

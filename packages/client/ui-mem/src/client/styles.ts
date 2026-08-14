@@ -575,8 +575,27 @@ export const memStyles = `
 
 /* ── Stats button + modal ─────────────────────────────────────────── */
 
-.dshmem-chip-secondary {
-  padding: 0 10px;
+.dshmem-stats-openbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
+    color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
+    background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.dshmem-stats-openbtn:hover {
+  border-color: var(--dsw-alias-state-business-primary);
+  color: var(--dsw-alias-state-business-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .dshmem-modal-mask {

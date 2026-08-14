@@ -1,14 +1,12 @@
 /**
- * Memory statistics entry: a header button next to the memory chip that
- * opens a standalone modal — full memory list (paginated, scope-filtered,
- * date-sortable) plus the embedding cache hit ranking (sortable by hits).
- * Kept as a separate slot entry so the quick panel stays focused.
+ * Memory statistics modal: opened from a 统计 button inside the memory panel.
+ * Shows overview cards, the full memory list (paginated, scope-filtered,
+ * date-sortable), and the embedding cache hit ranking (sortable by hits).
+ * Standalone overlay dialog — it never renders inside the quick panel body.
  * @module @deepseek-ai/dsh-client-ui-mem
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   MemCacheStats,
@@ -16,18 +14,20 @@ import type {
   MemListAllRequest,
   MemListAllResponse,
 } from '@deepseek-ai/dsh-mem/client'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 
-/** Stats verbs injected from the plugin apply closure. */
+/** Stats verbs shared with the widget's inject face. */
 export interface MemStatsActions {
   cacheStats(): Promise<RemoteResult<MemCacheStats>>
   listAll(request: MemListAllRequest): Promise<RemoteResult<MemListAllResponse>>
 }
 
-/** Full composed props: session standard kit + injected verbs + locale seat. */
-export type MemStatsProps =
-  & PropsRuntime<'conversation.session.header.utilities'>
-  & MemStatsActions
-  & PropsLocale<'mem'>
+/** Controlled modal props: open state, close verb, locale seat, data verbs. */
+export interface MemStatsModalProps extends MemStatsActions {
+  open: boolean
+  onClose: () => void
+  t: TranslateNS<'mem'>
+}
 
 type ScopeFilter = 'all' | 'project' | 'global'
 type DateSort = 'createdAtDesc' | 'createdAtAsc'
@@ -39,15 +39,6 @@ function unwrap<T>(result: RemoteResult<T>): T | null {
   return result.ok ? result.value : null
 }
 
-/** Inline bar-chart icon. */
-function IconChart(): JSX.Element {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-      <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
-    </svg>
-  )
-}
-
 function IconClose(): JSX.Element {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -56,9 +47,8 @@ function IconClose(): JSX.Element {
   )
 }
 
-/** Header button + standalone stats modal. */
-export function MemStats({ t, cacheStats, listAll }: MemStatsProps): JSX.Element {
-  const [open, setOpen] = useState(false)
+/** Standalone stats dialog rendered from the memory panel's 统计 button. */
+export function MemStatsModal({ open, onClose, t, cacheStats, listAll }: MemStatsModalProps): JSX.Element | null {
   const [cache, setCache] = useState<MemCacheStats | null>(null)
   const [items, setItems] = useState<MemListAllItem[]>([])
   const [total, setTotal] = useState(0)
@@ -81,7 +71,7 @@ export function MemStats({ t, cacheStats, listAll }: MemStatsProps): JSX.Element
     }
   }, [listAll])
 
-  // Open: load cache stats + first list page; close on Escape / outside click.
+  // Open: load cache stats + first list page; close on Escape / mask click.
   useEffect(() => {
     if (!open) return
     void cacheStats().then((result) => {
@@ -90,13 +80,15 @@ export function MemStats({ t, cacheStats, listAll }: MemStatsProps): JSX.Element
     })
     void loadList(1, 'all', 'createdAtDesc')
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => {
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [open, cacheStats, loadList])
+  }, [open, cacheStats, loadList, onClose])
+
+  if (!open) return null
 
   const onScope = (next: ScopeFilter): void => {
     setScope(next)
@@ -117,127 +109,112 @@ export function MemStats({ t, cacheStats, listAll }: MemStatsProps): JSX.Element
     : `${Math.round(cache.hits / (cache.hits + cache.misses) * 100)}%`
 
   return (
-    <div className="dshmem-root">
-      <button
-        type="button"
-        className="dshmem-chip dshmem-chip-secondary"
-        data-open={open || undefined}
-        title={t('statsTitle')}
-        onClick={() => { setOpen((current) => !current) }}
-      >
-        <IconChart />
-        <span className="dshmem-chip-label">{t('statsButton')}</span>
-      </button>
+    <div className="dshmem-modal-mask" onPointerDown={(event) => {
+      if (event.target === event.currentTarget) onClose()
+    }}>
+      <div className="dshmem-modal" role="dialog" aria-label={t('statsTitle')}>
+        <div className="dshmem-modal-header">
+          <span className="dshmem-modal-title">{t('statsTitle')}</span>
+          <button type="button" className="dshmem-panel-close" aria-label={t('statsClose')} onClick={onClose}>
+            <IconClose />
+          </button>
+        </div>
 
-      {open && (
-        <div className="dshmem-modal-mask" onPointerDown={(event) => {
-          if (event.target === event.currentTarget) setOpen(false)
-        }}>
-          <div className="dshmem-modal" role="dialog" aria-label={t('statsTitle')}>
-            <div className="dshmem-modal-header">
-              <span className="dshmem-modal-title">{t('statsTitle')}</span>
-              <button type="button" className="dshmem-panel-close" aria-label={t('statsClose')} onClick={() => { setOpen(false) }}>
-                <IconClose />
-              </button>
-            </div>
-
-            <div className="dshmem-stats-cards">
-              <div className="dshmem-stats-card">
-                <span className="dshmem-stats-card-value">{total}</span>
-                <span className="dshmem-stats-card-label">{t('statsTotal')}</span>
-              </div>
-              <div className="dshmem-stats-card">
-                <span className="dshmem-stats-card-value">{cache?.hits ?? '—'}</span>
-                <span className="dshmem-stats-card-label">{t('statsCacheHits')}</span>
-              </div>
-              <div className="dshmem-stats-card">
-                <span className="dshmem-stats-card-value">{hitRate}</span>
-                <span className="dshmem-stats-card-label">{t('statsHitRate')}</span>
-              </div>
-              <div className="dshmem-stats-card">
-                <span className="dshmem-stats-card-value">{cache !== null ? `${cache.size}/${cache.capacity}` : '—'}</span>
-                <span className="dshmem-stats-card-label">{t('statsCacheSize')}</span>
-              </div>
-            </div>
-
-            <div className="dshmem-stats-section">
-              <div className="dshmem-stats-section-head">
-                <span className="dshmem-stats-section-title">{t('statsMemories')}</span>
-                <div className="dshmem-stats-tabs">
-                  {(['all', 'project', 'global'] as const).map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className="dshmem-stats-tab"
-                      data-active={scope === key || undefined}
-                      onClick={() => { onScope(key) }}
-                    >
-                      {key === 'all' ? t('scopeAll') : key === 'project' ? t('scopeProject') : t('scopeGlobal')}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="dshmem-stats-table">
-                <div className="dshmem-stats-row dshmem-stats-row-head">
-                  <span className="dshmem-stats-col-content">{t('statsContent')}</span>
-                  <span className="dshmem-stats-col-scope">{t('statsScope')}</span>
-                  <span className="dshmem-stats-col-dims">{t('statsDims')}</span>
-                  <button type="button" className="dshmem-stats-col-date" onClick={onDateSort}>
-                    {t('statsCreatedAt')} {dateSort === 'createdAtDesc' ? '↓' : '↑'}
-                  </button>
-                </div>
-                {items.length === 0 && !loading && (
-                  <div className="dshmem-stats-empty">{t('statsEmpty')}</div>
-                )}
-                {loading && <div className="dshmem-stats-empty">{t('statsLoading')}</div>}
-                {items.map((item) => (
-                  <div className="dshmem-stats-row" key={item.id}>
-                    <span className="dshmem-stats-col-content" title={item.content}>{item.content}</span>
-                    <span className="dshmem-stats-col-scope">{item.scope === 'global' ? t('scopeGlobal') : t('scopeProject')}</span>
-                    <span className="dshmem-stats-col-dims">{item.dims}</span>
-                    <span className="dshmem-stats-col-date">{new Date(item.createdAt).toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="dshmem-stats-pager">
-                <button type="button" disabled={page <= 1} onClick={() => { void loadList(page - 1, scope, dateSort) }}>{t('prevPage')}</button>
-                <span className="dshmem-stats-pager-info">{page} / {pages}</span>
-                <button type="button" disabled={page >= pages} onClick={() => { void loadList(page + 1, scope, dateSort) }}>{t('nextPage')}</button>
-              </div>
-            </div>
-
-            <div className="dshmem-stats-section">
-              <div className="dshmem-stats-section-head">
-                <span className="dshmem-stats-section-title">{t('statsCacheRank')}</span>
-                <button
-                  type="button"
-                  className="dshmem-stats-sortbtn"
-                  onClick={() => { setHitsSort((current) => (current === 'hitsDesc' ? 'hitsAsc' : 'hitsDesc')) }}
-                >
-                  {t('statsHits')} {hitsSort === 'hitsDesc' ? '↓' : '↑'}
-                </button>
-              </div>
-              <div className="dshmem-stats-table">
-                <div className="dshmem-stats-row dshmem-stats-row-head">
-                  <span className="dshmem-stats-col-cachetext">{t('statsCacheText')}</span>
-                  <span className="dshmem-stats-col-hits">{t('statsHits')}</span>
-                  <span className="dshmem-stats-col-last">{t('statsLastHit')}</span>
-                </div>
-                {sortedCacheTop.length === 0 && <div className="dshmem-stats-empty">{t('statsEmpty')}</div>}
-                {sortedCacheTop.map((entry, index) => (
-                  <div className="dshmem-stats-row" key={index}>
-                    <span className="dshmem-stats-col-cachetext" title={entry.text}>{entry.text}</span>
-                    <span className="dshmem-stats-col-hits">{entry.hits}</span>
-                    <span className="dshmem-stats-col-last">{new Date(entry.lastAt).toLocaleTimeString()}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div className="dshmem-stats-cards">
+          <div className="dshmem-stats-card">
+            <span className="dshmem-stats-card-value">{total}</span>
+            <span className="dshmem-stats-card-label">{t('statsTotal')}</span>
+          </div>
+          <div className="dshmem-stats-card">
+            <span className="dshmem-stats-card-value">{cache?.hits ?? '—'}</span>
+            <span className="dshmem-stats-card-label">{t('statsCacheHits')}</span>
+          </div>
+          <div className="dshmem-stats-card">
+            <span className="dshmem-stats-card-value">{hitRate}</span>
+            <span className="dshmem-stats-card-label">{t('statsHitRate')}</span>
+          </div>
+          <div className="dshmem-stats-card">
+            <span className="dshmem-stats-card-value">{cache !== null ? `${cache.size}/${cache.capacity}` : '—'}</span>
+            <span className="dshmem-stats-card-label">{t('statsCacheSize')}</span>
           </div>
         </div>
-      )}
+
+        <div className="dshmem-stats-section">
+          <div className="dshmem-stats-section-head">
+            <span className="dshmem-stats-section-title">{t('statsMemories')}</span>
+            <div className="dshmem-stats-tabs">
+              {(['all', 'project', 'global'] as const).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  className="dshmem-stats-tab"
+                  data-active={scope === key || undefined}
+                  onClick={() => { onScope(key) }}
+                >
+                  {key === 'all' ? t('scopeAll') : key === 'project' ? t('scopeProject') : t('scopeGlobal')}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="dshmem-stats-table">
+            <div className="dshmem-stats-row dshmem-stats-row-head">
+              <span className="dshmem-stats-col-content">{t('statsContent')}</span>
+              <span className="dshmem-stats-col-scope">{t('statsScope')}</span>
+              <span className="dshmem-stats-col-dims">{t('statsDims')}</span>
+              <button type="button" className="dshmem-stats-col-date" onClick={onDateSort}>
+                {t('statsCreatedAt')} {dateSort === 'createdAtDesc' ? '↓' : '↑'}
+              </button>
+            </div>
+            {items.length === 0 && !loading && (
+              <div className="dshmem-stats-empty">{t('statsEmpty')}</div>
+            )}
+            {loading && <div className="dshmem-stats-empty">{t('statsLoading')}</div>}
+            {items.map((item) => (
+              <div className="dshmem-stats-row" key={item.id}>
+                <span className="dshmem-stats-col-content" title={item.content}>{item.content}</span>
+                <span className="dshmem-stats-col-scope">{item.scope === 'global' ? t('scopeGlobal') : t('scopeProject')}</span>
+                <span className="dshmem-stats-col-dims">{item.dims}</span>
+                <span className="dshmem-stats-col-date">{new Date(item.createdAt).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="dshmem-stats-pager">
+            <button type="button" disabled={page <= 1} onClick={() => { void loadList(page - 1, scope, dateSort) }}>{t('prevPage')}</button>
+            <span className="dshmem-stats-pager-info">{page} / {pages}</span>
+            <button type="button" disabled={page >= pages} onClick={() => { void loadList(page + 1, scope, dateSort) }}>{t('nextPage')}</button>
+          </div>
+        </div>
+
+        <div className="dshmem-stats-section">
+          <div className="dshmem-stats-section-head">
+            <span className="dshmem-stats-section-title">{t('statsCacheRank')}</span>
+            <button
+              type="button"
+              className="dshmem-stats-sortbtn"
+              onClick={() => { setHitsSort((current) => (current === 'hitsDesc' ? 'hitsAsc' : 'hitsDesc')) }}
+            >
+              {t('statsHits')} {hitsSort === 'hitsDesc' ? '↓' : '↑'}
+            </button>
+          </div>
+          <div className="dshmem-stats-table">
+            <div className="dshmem-stats-row dshmem-stats-row-head dshmem-stats-row-cache">
+              <span className="dshmem-stats-col-cachetext">{t('statsCacheText')}</span>
+              <span className="dshmem-stats-col-hits">{t('statsHits')}</span>
+              <span className="dshmem-stats-col-last">{t('statsLastHit')}</span>
+            </div>
+            {sortedCacheTop.length === 0 && <div className="dshmem-stats-empty">{t('statsEmpty')}</div>}
+            {sortedCacheTop.map((entry, index) => (
+              <div className="dshmem-stats-row dshmem-stats-row-cache" key={index}>
+                <span className="dshmem-stats-col-cachetext" title={entry.text}>{entry.text}</span>
+                <span className="dshmem-stats-col-hits">{entry.hits}</span>
+                <span className="dshmem-stats-col-last">{new Date(entry.lastAt).toLocaleTimeString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

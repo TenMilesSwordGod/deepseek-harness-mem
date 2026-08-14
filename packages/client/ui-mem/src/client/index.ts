@@ -19,8 +19,6 @@ import { memoryRemote } from './remote.ts'
 import type { MemoryRemoteNamespace } from './remote.ts'
 import { MemWidget } from './MemWidget.tsx'
 import type { MemActions } from './MemWidget.tsx'
-import { MemStats } from './MemStats.tsx'
-import type { MemStatsActions } from './MemStats.tsx'
 import { memStyles } from './styles.ts'
 import { en, zh } from './locales.ts'
 import type { MemKey } from './locales.ts'
@@ -71,24 +69,12 @@ export async function apply(ctx: ClientContext): Promise<void> {
         status: () => memory.status(),
         models: () => memory.models(),
         configure: (model) => memory.configure({ model }),
+        cacheStats: () => memory.cacheStats(),
+        listAll: (request) => memory.listAll(sessionId, request),
         search: (query, limit) => memory.search(sessionId, { query, limit }),
         record: (content) => memory.record(sessionId, { content }),
         forget: (id) => memory.forget({ id }),
       }
     },
   }, MemWidget))
-
-  ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({
-    name: 'conversation.session.header.utilities',
-    id: 'mem-stats',
-    order: 1,
-    locale: NS,
-    inject: (sessionId: SessionId): MemStatsActions => {
-      const memory = ctx.get('remote.memory') as MemoryRemoteNamespace
-      return {
-        cacheStats: () => memory.cacheStats(),
-        listAll: (request) => memory.listAll(sessionId, request),
-      }
-    },
-  }, MemStats))
 }

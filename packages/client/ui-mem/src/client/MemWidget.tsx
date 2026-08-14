@@ -12,10 +12,12 @@ import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { MemModelEntry, MemProjection, MemStatus } from '@deepseek-ai/dsh-mem/client'
+import { MemStatsModal } from './MemStats.tsx'
+import type { MemStatsActions } from './MemStats.tsx'
 import { memStyles } from './styles.ts'
 
 /** Mutation verbs injected from the plugin apply closure. */
-export interface MemActions {
+export interface MemActions extends MemStatsActions {
   status(): Promise<RemoteResult<MemStatus>>
   models(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemModelsResponse>>
   configure(model: string): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemConfigureResponse>>
@@ -79,6 +81,14 @@ function IconTrash(): JSX.Element {
   )
 }
 
+function IconChart(): JSX.Element {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+    </svg>
+  )
+}
+
 function IconPlus(): JSX.Element {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -99,12 +109,15 @@ export function MemWidget({
   status,
   models,
   configure,
+  cacheStats,
+  listAll,
   search,
   record,
   forget,
 }: MemWidgetProps): JSX.Element {
   const projection = useProjection('memory') as MemProjection | undefined
   const [open, setOpen] = useState(false)
+  const [statsOpen, setStatsOpen] = useState(false)
   const [statusSnapshot, setStatusSnapshot] = useState<MemStatus | null>(null)
   const [statusError, setStatusError] = useState(false)
   const [catalog, setCatalog] = useState<MemModelEntry[] | null>(null)
@@ -310,6 +323,10 @@ export function MemWidget({
             <span className="dshmem-dot" data-state={dotState} />
             <span className="dshmem-panel-title">{t('panelTitle')}</span>
             <span className="dshmem-status-badge" data-state={dotState}>{statusBadge}</span>
+            <button type="button" className="dshmem-stats-openbtn" onClick={() => { setStatsOpen(true) }}>
+              <IconChart />
+              {t('statsButton')}
+            </button>
             <button type="button" className="dshmem-panel-close" aria-label="close" onClick={() => { setOpen(false) }}>
               <IconClose />
             </button>
@@ -448,6 +465,14 @@ export function MemWidget({
           </div>
         </div>
       )}
+
+      <MemStatsModal
+        open={statsOpen}
+        onClose={() => { setStatsOpen(false) }}
+        t={t}
+        cacheStats={cacheStats}
+        listAll={listAll}
+      />
     </div>
   )
 }

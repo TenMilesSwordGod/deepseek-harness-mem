@@ -164,6 +164,8 @@ const memDownloadResponseSchema = z.object({
   reason: z.string().optional(),
 })
 
+const memCancelDownloadResponseSchema = z.object({ cancelled: z.boolean() })
+
 const memForgetRequestSchema = z.object({ id: z.string() })
 
 const memForgetResponseSchema = z.object({
@@ -280,6 +282,15 @@ const invocations: readonly InvocationDescriptor[] = [
       jsonParam('request', 'request', '@deepseek-ai/dsh-mem/client#MemDownloadRequest', memDownloadRequestSchema),
     ],
     result: codec('@deepseek-ai/dsh-mem/client#MemDownloadResponse', memDownloadResponseSchema),
+  },
+  {
+    id: '@deepseek-ai/dsh-mem#memory/cancelDownload',
+    service: 'memory',
+    namespace: 'memory',
+    method: 'cancelDownload',
+    invocation: { kind: 'direct' },
+    parameters: [],
+    result: codec('@deepseek-ai/dsh-mem/client#MemCancelDownloadResponse', memCancelDownloadResponseSchema),
   },
   {
     id: '@deepseek-ai/dsh-mem#memory/warmup',

@@ -22,6 +22,7 @@ export interface MemActions extends MemStatsActions {
   warmup(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemWarmupResponse>>
   reembed(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemReembedResponse>>
   downloadModel(model: string): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemDownloadResponse>>
+  cancelDownload(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemCancelDownloadResponse>>
   models(): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemModelsResponse>>
   configure(model: string): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemConfigureResponse>>
   search(query: string, limit: number): Promise<RemoteResult<import('@deepseek-ai/dsh-mem/client').MemSearchResponse>>
@@ -122,6 +123,7 @@ export function MemWidget({
   warmup,
   reembed,
   downloadModel,
+  cancelDownload,
   models,
   configure,
   cacheStats,
@@ -395,12 +397,24 @@ export function MemWidget({
                       <span className="dshmem-model-row-label">{entry.label} · {entry.dims}d</span>
                       <span className="dshmem-model-row-size">{entry.sizeMb}MB</span>
                       {isDownloading && dl !== null ? (
-                        <span className="dshmem-model-row-status dshmem-model-row-progress" style={{ width: '96px' }}>
-                          <span className="dshmem-progress" style={{ flex: 1, margin: 0 }}>
-                            <span className="dshmem-progress-fill" style={{ width: `${Math.max(4, Math.round(dl.progress * 100))}%` }} />
+                        <>
+                          <span className="dshmem-model-row-status dshmem-model-row-progress" style={{ width: '96px' }}>
+                            <span className="dshmem-progress" style={{ flex: 1, margin: 0 }}>
+                              <span className="dshmem-progress-fill" style={{ width: `${Math.max(4, Math.round(dl.progress * 100))}%` }} />
+                            </span>
+                            {Math.round(dl.progress * 100)}%
                           </span>
-                          {Math.round(dl.progress * 100)}%
-                        </span>
+                          <button
+                            type="button"
+                            className="dshmem-model-dlbtn dshmem-model-dlbtn-cancel"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              void cancelDownload().then(() => { void loadStatus(); void loadCatalog() })
+                            }}
+                          >
+                            {t('dlCancel')}
+                          </button>
+                        </>
                       ) : dl !== null && dl.model === entry.id && dl.state === 'error' ? (
                         <span className="dshmem-model-row-status dshmem-model-row-error">{t('dlFailed')}</span>
                       ) : (

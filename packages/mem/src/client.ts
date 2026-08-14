@@ -8,6 +8,7 @@
 export type {
   MemCacheStats,
   MemCacheTopEntry,
+  MemCancelDownloadResponse,
   MemConfig,
   MemConfigureRequest,
   MemConfigureResponse,

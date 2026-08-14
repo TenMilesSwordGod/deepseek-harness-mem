@@ -27,6 +27,7 @@ import { MEMORY_TYPERT_HOST } from './typert.js'
 import { applyMemFold, initMemFold, memProjectionSchema } from './projection.js'
 import type {
   MemCacheStats,
+  MemCancelDownloadResponse,
   MemConfig,
   MemConfigureRequest,
   MemConfigureResponse,
@@ -165,6 +166,7 @@ export class MemService extends TypertRemoteService {
       catalogModel(model)?.dims ?? this.config.embeddingDimensions,
       this.config.modelCacheDir,
       this.config.embeddingTaskPrefixes,
+      this.config.huggingfaceBaseUrl,
     )
     if (this.config.warmupOnBoot) {
       void this.embedding.warmup().catch(() => {
@@ -380,13 +382,18 @@ export class MemService extends TypertRemoteService {
     }
   }
 
-  /** Download one catalog model into the local cache (the widget's download button). */
+  /** Download one model into the local cache (the widget's download button). */
   @Remote('downloadModel')
   downloadModel(request: MemDownloadRequest): MemDownloadResponse {
     const model = resolveText(request.model, 'model', 200)
-    if (catalogModel(model) === undefined) throw new Error(`unknown embedding model ${JSON.stringify(model)}`)
     const started = this.embedding.startDownload(model)
     return started ? { started } : { started: false, reason: 'a download is already running' }
+  }
+
+  /** Cancel the running manual download (the widget's cancel button). */
+  @Remote('cancelDownload')
+  cancelDownload(): MemCancelDownloadResponse {
+    return { cancelled: this.embedding.cancelDownload() }
   }
 
   /** Catalog plus local-cache flags, and the active model. */

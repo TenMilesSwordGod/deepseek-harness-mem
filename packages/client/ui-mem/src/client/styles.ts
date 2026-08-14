@@ -426,6 +426,14 @@ export const memStyles = `
   border-color: var(--dsw-alias-state-business-primary);
 }
 
+.dshmem-model-dlbtn-cancel {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.dshmem-model-dlbtn-cancel:hover {
+  border-color: var(--dsw-alias-state-error-primary);
+}
+
 /* Tooltip bubble */
 
 .dshmem-tip {

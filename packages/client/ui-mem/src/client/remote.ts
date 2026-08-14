@@ -11,6 +11,7 @@ import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-ty
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
   MemCacheStats,
+  MemCancelDownloadResponse,
   MemConfigureRequest,
   MemConfigureResponse,
   MemDownloadRequest,
@@ -181,6 +182,8 @@ const memDownloadResponseSchema = z.object({
   reason: z.string().optional(),
 })
 
+const memCancelDownloadResponseSchema = z.object({ cancelled: z.boolean() })
+
 const memForgetRequestSchema = z.object({ id: z.string() })
 
 const memForgetResponseSchema = z.object({
@@ -306,6 +309,15 @@ export const memoryRemote: TypertRemoteContribution = {
       result: codec('@deepseek-ai/dsh-mem/client#MemDownloadResponse', memDownloadResponseSchema),
     },
     {
+      id: '@deepseek-ai/dsh-mem#memory/cancelDownload',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'cancelDownload',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      result: codec('@deepseek-ai/dsh-mem/client#MemCancelDownloadResponse', memCancelDownloadResponseSchema),
+    },
+    {
       id: '@deepseek-ai/dsh-mem#memory/warmup',
       service: 'memory',
       namespace: 'memory',
@@ -367,6 +379,7 @@ export interface MemoryRemoteNamespace {
   warmup(): Promise<RemoteResult<MemWarmupResponse>>
   reembed(): Promise<RemoteResult<MemReembedResponse>>
   downloadModel(request: MemDownloadRequest): Promise<RemoteResult<MemDownloadResponse>>
+  cancelDownload(): Promise<RemoteResult<MemCancelDownloadResponse>>
   models(): Promise<RemoteResult<MemModelsResponse>>
   configure(request: MemConfigureRequest): Promise<RemoteResult<MemConfigureResponse>>
   cacheStats(): Promise<RemoteResult<MemCacheStats>>

@@ -4,7 +4,60 @@
  * the harness server.
  */
 import { Context } from '@deepseek-ai/cordis'
+import { createServer } from 'node:http'
+import { existsSync, readdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 import { MemService } from '../packages/mem/lib/index.js'
+import { EmbeddingService } from '../packages/mem/lib/embedding.js'
+
+/** Local fake Hugging Face: serves model listings and files for download tests. */
+function fakeHfServer() {
+  const files = {
+    'config.json': '{}',
+    'tokenizer.json': '{"version":"1.0"}',
+    'tokenizer_config.json': '{}',
+    'special_tokens_map.json': '{}',
+    'onnx/model_quantized.onnx': Buffer.alloc(1024, 7),
+  }
+  const server = createServer((req, res) => {
+    const url = new URL(req.url, 'http://x')
+    const listing = url.pathname.match(/^\/api\/models\/(.+)$/)
+    if (listing !== null) {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ siblings: Object.keys(files).map((rfilename) => ({ rfilename })) }))
+      return
+    }
+    const fileMatch = url.pathname.match(/^\/(.+)\/resolve\/main\/(.+)$/)
+    if (fileMatch !== null) {
+      const [, model, file] = fileMatch
+      if (model === 'Xenova/slow-model') {
+        setTimeout(() => {
+          res.writeHead(200)
+          res.end(files[file] ?? 'x')
+        }, 15000)
+        return
+      }
+      if (model === 'Xenova/broken-model') {
+        res.writeHead(404)
+        res.end('missing')
+        return
+      }
+      if (files[file] === undefined) {
+        res.writeHead(404)
+        res.end('missing')
+        return
+      }
+      res.writeHead(200)
+      res.end(files[file])
+      return
+    }
+    res.writeHead(404)
+    res.end('not found')
+  })
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => resolve({ server, port: server.address().port }))
+  })
+}
 
 const dbPath = '/home/vncuser/workdir/dsh-mem/.shots/memtest.sqlite'
 
@@ -73,14 +126,58 @@ ctx.plugin({
     if (hidden.results.some((hit) => hit.id === firstId)) throw new Error('disabled memory still searchable')
     if (!visible.results.some((hit) => hit.id === firstId)) throw new Error('re-enabled memory missing from search')
 
-    // download remote: unknown model rejects; status carries the download slot
-    try {
-      service.downloadModel({ model: 'Xenova/does-not-exist' })
-      throw new Error('unknown model download did not throw')
-    } catch (error) {
-      console.log('11. downloadModel rejects unknown model: ok')
+    // download remote: status carries the download slot
+    console.log('11. status.download slot:', service.status().download)
+
+    // ── download / cancel / failure tests against a local fake HF server ──
+    // Driven through EmbeddingService directly (the download logic's home):
+    // the Remotes are thin wrappers already covered by the face registration.
+    {
+      const { server, port } = await fakeHfServer()
+      const dlCache = '/home/vncuser/workdir/dsh-mem/.shots/dl-cache'
+      rmSync(dlCache, { recursive: true, force: true })
+      try {
+        const dl = new EmbeddingService('Xenova/nomic-embed-text-v1', 768, dlCache, false, `http://127.0.0.1:${port}`)
+        // waitDl returns { ok } — a matching null state is a SUCCESS here.
+        const waitDl = async (predicate, timeoutMs = 20000) => {
+          const start = Date.now()
+          while (Date.now() - start < timeoutMs) {
+            const state = dl.downloadState
+            if (predicate(state)) return { ok: true, state }
+            await new Promise((r) => setTimeout(r, 250))
+          }
+          return { ok: false, state: dl.downloadState }
+        }
+
+        // success path
+        if (!dl.startDownload('Xenova/test-model')) throw new Error('download did not start')
+        const done = await waitDl((state) => state === null, 15000)
+        if (!done.ok) throw new Error(`download success path failed: ${JSON.stringify(done.state)}`)
+        if (!dl.isCachedFor('Xenova/test-model')) throw new Error('downloaded model not recognised as cached')
+        console.log('12. download success: files cached, state cleared')
+
+        // cancel path
+        dl.startDownload('Xenova/slow-model')
+        await new Promise((r) => setTimeout(r, 700))
+        const cancel = dl.cancelDownload()
+        const cancelled = await waitDl((state) => state === null, 5000)
+        if (!cancel || !cancelled.ok) throw new Error(`cancel path failed: ${JSON.stringify(cancelled.state)}`)
+        const leftover = readdirSync(dlCache).filter((name) => name.includes('slow-model'))
+        if (leftover.length > 0) throw new Error(`cancel left partial files: ${leftover.join(',')}`)
+        console.log('13. download cancel: aborted, partial files removed')
+
+        // failure path cleans up (no partial dir left behind)
+        dl.startDownload('Xenova/broken-model')
+        const failed = await waitDl((state) => state !== null && state.state === 'error', 15000)
+        if (!failed.ok) throw new Error(`failure path did not reach error state: ${JSON.stringify(failed.state)}`)
+        if (existsSync(join(dlCache, 'Xenova/broken-model'))) throw new Error('failed download left a model dir')
+        console.log('14. download failure: error state, no partial dir')
+      } finally {
+        server.closeAllConnections?.()
+        server.close()
+      }
     }
-    console.log('11b. status.download slot:', service.status().download)
+
     console.log('SMOKE OK')
     } catch (error) {
       console.error('SMOKE FAIL:', error?.stack ?? error)

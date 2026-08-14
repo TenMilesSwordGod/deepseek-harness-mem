@@ -236,6 +236,8 @@ export interface MemConfig {
   maxRecordChars: number
   /** Host-side activity ring size for the widget status. */
   activityRingSize: number
+  /** Hugging Face base URL used by the manual downloader. */
+  huggingfaceBaseUrl: string
 }
 
 /** One entry in the embedding cache hit ranking. */
@@ -305,6 +307,12 @@ export interface MemDownloadResponse {
   started: boolean
   /** Reason the task did not start (busy or unknown model). */
   reason?: string
+}
+
+/** cancelDownload() Remote result. */
+export interface MemCancelDownloadResponse {
+  /** True when a running download was cancelled. */
+  cancelled: boolean
 }
 
 /** All-memories request: paginated, optional scope filter and date sort. */

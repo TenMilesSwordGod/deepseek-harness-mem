@@ -6,8 +6,8 @@
  * @module @deepseek-ai/dsh-mem
  */
 
-import { existsSync, mkdirSync } from 'node:fs'
-import { writeFile } from 'node:fs/promises'
+import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { DownloadState, MemCacheStats, WarmupState } from './types.ts'
 import { catalogModel } from './models.js'
@@ -47,6 +47,7 @@ export class EmbeddingService {
   #dimensions: number
   readonly #cacheDir: string
   readonly #useTaskPrefixes: boolean
+  readonly #hfBase: string
   #pipe: FeatureExtractionPipe | null = null
   #initPromise: Promise<void> | null = null
   #warmup: WarmupState = { state: 'idle', progress: 0, detail: null }
@@ -57,12 +58,14 @@ export class EmbeddingService {
   #misses = 0
   #download: DownloadState | null = null
   #downloadVersion = 0
+  #downloadAbort: AbortController | null = null
 
-  constructor(model: string, dimensions: number, cacheDir: string, useTaskPrefixes: boolean) {
+  constructor(model: string, dimensions: number, cacheDir: string, useTaskPrefixes: boolean, hfBase = 'https://huggingface.co') {
     this.#model = model
     this.#dimensions = dimensions
     this.#cacheDir = cacheDir
     this.#useTaskPrefixes = useTaskPrefixes
+    this.#hfBase = hfBase.replace(/\/+$/, '')
   }
 
   /** Active model id. */
@@ -104,26 +107,44 @@ export class EmbeddingService {
   }
 
   /**
-   * Download one catalog model's files into the local cache layout
+   * Download one model's files into the local cache layout
    * (`<cacheDir>/<model-id>/...`) without touching the active pipeline.
-   * @param modelId - catalog model id.
+   * Files land in a temp directory first and are atomically renamed only
+   * when every file arrived, so an interrupted download never looks cached.
+   * @param modelId - Hugging Face model id (catalog or custom).
    * @returns true when the task started; false when a download is already running.
    */
   startDownload(modelId: string): boolean {
     if (this.#download?.state === 'running') return false
     const version = ++this.#downloadVersion
+    this.#downloadAbort = new AbortController()
     this.#download = { model: modelId, state: 'running', progress: 0, detail: null }
-    void this.#runDownload(modelId, version)
+    void this.#runDownload(modelId, version, this.#downloadAbort.signal)
     return true
   }
 
-  async #runDownload(modelId: string, version: number): Promise<void> {
+  /** Cancel the running download and remove its partial files. @returns whether one was cancelled. */
+  cancelDownload(): boolean {
+    if (this.#download?.state !== 'running') return false
+    this.#downloadVersion += 1
+    this.#downloadAbort?.abort()
+    this.#download = null
+    return true
+  }
+
+  #tempDirOf(modelId: string): string {
+    return join(this.#cacheDir, `.tmp-${modelId.replace(/[^a-zA-Z0-9.-]/g, '_')}`)
+  }
+
+  async #runDownload(modelId: string, version: number, signal: AbortSignal): Promise<void> {
     const set = (patch: Partial<DownloadState>): void => {
       if (this.#downloadVersion !== version) return
       this.#download = { ...(this.#download as DownloadState), ...patch }
     }
+    const temp = this.#tempDirOf(modelId)
+    rmSync(temp, { recursive: true, force: true })
     try {
-      const listResponse = await fetch(`https://huggingface.co/api/models/${modelId}`)
+      const listResponse = await fetch(`${this.#hfBase}/api/models/${modelId}`, { signal })
       if (!listResponse.ok) throw new Error(`model listing failed: HTTP ${listResponse.status}`)
       const payload = await listResponse.json() as { siblings?: Array<{ rfilename: string }> }
       const names = new Set((payload.siblings ?? []).map((entry) => entry.rfilename))
@@ -136,17 +157,29 @@ export class EmbeddingService {
       let done = 0
       for (const file of wanted) {
         set({ detail: file })
-        const response = await fetch(`https://huggingface.co/${modelId}/resolve/main/${file}`)
+        const response = await fetch(`${this.#hfBase}/${modelId}/resolve/main/${file}`, { signal })
         if (!response.ok) throw new Error(`download of ${file} failed: HTTP ${response.status}`)
         const bytes = new Uint8Array(await response.arrayBuffer())
-        const target = join(this.#cacheDir, modelId, file)
+        const target = join(temp, file)
         mkdirSync(dirname(target), { recursive: true })
         await writeFile(target, bytes)
         done += 1
         set({ progress: done / wanted.length })
       }
+      // Atomic publish: only a complete download becomes visible as cached.
+      // rename() does not create the parent directory, so ensure it exists.
+      mkdirSync(dirname(join(this.#cacheDir, modelId)), { recursive: true })
+      rmSync(join(this.#cacheDir, modelId), { recursive: true, force: true })
+      await rename(temp, join(this.#cacheDir, modelId))
       set({ state: 'done', progress: 1, detail: null })
+      if (this.#downloadVersion === version) this.#download = null
     } catch (error) {
+      rmSync(temp, { recursive: true, force: true })
+      if (this.#downloadVersion !== version) return
+      if (signal.aborted) {
+        this.#download = null
+        return
+      }
       const message = error instanceof Error ? error.message : String(error)
       set({ state: 'error', detail: message })
     }
@@ -177,11 +210,15 @@ export class EmbeddingService {
   }
 
   /**
-   * Whether one catalog model's files exist in the local model cache.
+   * Whether one model's REQUIRED files exist in the local cache. A directory
+   * with partial files (an interrupted download) does not count as cached.
    * @param modelId - Hugging Face model id.
    */
   isCachedFor(modelId: string): boolean {
-    return existsSync(join(this.#cacheDir, modelId))
+    const dir = join(this.#cacheDir, modelId)
+    return existsSync(join(dir, 'config.json'))
+      && existsSync(join(dir, 'tokenizer.json'))
+      && (existsSync(join(dir, 'onnx', 'model_quantized.onnx')) || existsSync(join(dir, 'onnx', 'model.onnx')))
   }
 
   /** Subscribe to warmup-state changes. @returns the unsubscriber. */

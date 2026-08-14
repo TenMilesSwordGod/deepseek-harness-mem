@@ -70,6 +70,7 @@ export async function apply(ctx: ClientContext): Promise<void> {
         warmup: () => memory.warmup(),
         reembed: () => memory.reembed(),
         downloadModel: (model) => memory.downloadModel({ model }),
+        cancelDownload: () => memory.cancelDownload(),
         models: () => memory.models(),
         configure: (model) => memory.configure({ model }),
         cacheStats: () => memory.cacheStats(),

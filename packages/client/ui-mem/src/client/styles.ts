@@ -303,6 +303,12 @@ export const memStyles = `
   white-space: nowrap;
 }
 
+.dshmem-warm-error {
+  color: var(--dsw-alias-state-error-primary);
+  white-space: normal;
+  word-break: break-all;
+}
+
 /* Model selector */
 
 .dshmem-model-select {

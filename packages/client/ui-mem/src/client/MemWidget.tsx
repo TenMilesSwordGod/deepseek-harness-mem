@@ -496,6 +496,9 @@ export function MemWidget({
                 </span>
               </>
             )}
+            {dotState === 'error' && statusSnapshot !== null && statusSnapshot.warmup.detail !== null && (
+              <span className="dshmem-warm-detail dshmem-warm-error">{statusSnapshot.warmup.detail}</span>
+            )}
             {dotState === 'idle' && (
               <span className="dshmem-warm-detail">{t('warmOnOpen')}</span>
             )}

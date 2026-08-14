@@ -264,14 +264,20 @@ export class EmbeddingService {
         env: Record<string, unknown> & { allowLocalModels: boolean; allowRemoteModels: boolean; cacheDir?: string; localModelPath?: string; dtype?: string }
       }
       env.allowLocalModels = true
+      // Local-only warmup: an implicit remote download both surprises the
+      // user (it starts on panel open after every reload) and lands in a
+      // different cache layout than the manual downloader. Missing models
+      // fail fast with a clear message; the widget's download button and
+      // manual-download tooltip are the explicit recovery paths.
       const localModelDir = join(this.#cacheDir, this.#model)
-      if (existsSync(localModelDir)) {
-        env.localModelPath = this.#cacheDir
-        env.allowRemoteModels = false
-      } else {
-        env.cacheDir = this.#cacheDir
-        env.allowRemoteModels = true
+      if (!existsSync(localModelDir)) {
+        throw new Error(
+          `model not cached: ${this.#model} — use the download button in the model list, or place the files under ${localModelDir}`,
+        )
       }
+      env.localModelPath = this.#cacheDir
+      env.allowRemoteModels = false
+      env.cacheDir = this.#cacheDir
       const onProgress = (payload: TransformersProgress): void => {
         if (payload.status === 'progress' && typeof payload.progress === 'number') {
           const progress = Math.min(1, payload.progress / 100)

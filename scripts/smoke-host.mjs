@@ -172,6 +172,17 @@ ctx.plugin({
         if (!failed.ok) throw new Error(`failure path did not reach error state: ${JSON.stringify(failed.state)}`)
         if (existsSync(join(dlCache, 'Xenova/broken-model'))) throw new Error('failed download left a model dir')
         console.log('14. download failure: error state, no partial dir')
+
+        // local-only warmup: a missing model fails fast with a clear message
+        const empty = new EmbeddingService('Xenova/nomic-embed-text-v1', 768, '/home/vncuser/workdir/dsh-mem/.shots/empty-cache', false, `http://127.0.0.1:${port}`)
+        let warmupError = ''
+        try {
+          await empty.warmup()
+        } catch (error) {
+          warmupError = error instanceof Error ? error.message : String(error)
+        }
+        if (!warmupError.includes('model not cached')) throw new Error(`warmup did not fail fast: ${warmupError}`)
+        console.log('14b. warmup missing model fails fast with a clear message')
       } finally {
         server.closeAllConnections?.()
         server.close()

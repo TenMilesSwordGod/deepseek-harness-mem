@@ -30,8 +30,7 @@ const memStatusSchema = z.object({
     z.null(),
   ]),
   warmup: z.object({
-    state: z.enum(['idle', 'downloading', 'ready', 'error']),
-    progress: z.number(),
+    state: z.enum(['idle', 'loading', 'ready', 'error']),
     detail: z.union([z.string(), z.null()]),
   }),
   reembed: z.union([

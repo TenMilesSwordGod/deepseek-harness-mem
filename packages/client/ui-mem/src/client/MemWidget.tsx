@@ -177,7 +177,7 @@ export function MemWidget({
           const value = unwrap(result)
           setStatusError(value === null)
           if (value !== null) setStatusSnapshot(value)
-          const warming = value !== null && (value.warmup.state === 'downloading' || !value.ready)
+          const warming = value !== null && (value.warmup.state === 'loading' || !value.ready)
           const reembedding = value !== null && value.reembed !== null && value.reembed.state === 'running'
           const downloading = value !== null && value.download !== null && value.download.state === 'running'
           timer = (warming || reembedding || downloading) ? window.setTimeout(poll, WARM_POLL_MS) : null
@@ -291,13 +291,12 @@ export function MemWidget({
 
   const dotState = statusError || statusSnapshot?.warmup.state === 'error'
     ? 'error'
-    : statusSnapshot?.warmup.state === 'downloading'
+    : statusSnapshot?.warmup.state === 'loading'
       ? 'warming'
       : statusSnapshot?.ready === true
         ? 'ready'
         : 'idle'
 
-  const warmPercent = statusSnapshot === null ? 0 : Math.round(statusSnapshot.warmup.progress * 100)
   const count = statusSnapshot?.count ?? null
   const toastKindLabel = toast === null
     ? ''
@@ -487,14 +486,10 @@ export function MemWidget({
               </button>
             )}
             {dotState === 'warming' && (
-              <>
-                <div className="dshmem-progress" aria-hidden="true">
-                  <div className="dshmem-progress-fill" style={{ width: `${Math.max(4, warmPercent)}%` }} />
-                </div>
-                <span className="dshmem-warm-detail">
-                  {t('warmingDetail')}{statusSnapshot?.warmup.detail !== null ? ` (${statusSnapshot?.warmup.detail})` : ''} · {warmPercent}%
-                </span>
-              </>
+              <span className="dshmem-warm-detail dshmem-warm-loading">
+                <IconSpinner />
+                {t('warmLoading')}
+              </span>
             )}
             {dotState === 'error' && statusSnapshot !== null && statusSnapshot.warmup.detail !== null && (
               <span className="dshmem-warm-detail dshmem-warm-error">{statusSnapshot.warmup.detail}</span>

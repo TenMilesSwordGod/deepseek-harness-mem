@@ -24,13 +24,6 @@ export type EmbedTask = 'document' | 'query'
 /** Shape of the transformers pipeline we need (kept loose: loaded lazily). */
 type FeatureExtractionPipe = (text: string, options: { pooling: 'mean'; normalize: boolean }) => Promise<{ data: Float32Array }>
 
-/** Progress callback payload from transformers.js downloads. */
-interface TransformersProgress {
-  status?: 'progress' | string
-  file?: string
-  progress?: number
-}
-
 interface WarmupListener {
   (state: WarmupState): void
 }
@@ -50,7 +43,7 @@ export class EmbeddingService {
   readonly #hfBase: string
   #pipe: FeatureExtractionPipe | null = null
   #initPromise: Promise<void> | null = null
-  #warmup: WarmupState = { state: 'idle', progress: 0, detail: null }
+  #warmup: WarmupState = { state: 'idle', detail: null }
   #listeners = new Set<WarmupListener>()
   readonly #cache = new Map<string, Float32Array>()
   readonly #cacheHits = new Map<string, { hits: number; lastAt: number }>()
@@ -98,7 +91,7 @@ export class EmbeddingService {
     this.#cacheHits.clear()
     this.#hits = 0
     this.#misses = 0
-    this.#setWarmup({ state: 'idle', progress: 0, detail: null })
+    this.#setWarmup({ state: 'idle', detail: null })
   }
 
   /** Current manual-download task snapshot, or null when idle. */
@@ -256,7 +249,7 @@ export class EmbeddingService {
   }
 
   async #initialize(): Promise<void> {
-    this.#setWarmup({ state: 'downloading', progress: 0, detail: null })
+    this.#setWarmup({ state: 'loading', detail: null })
     try {
       const transformers = await import('@huggingface/transformers')
       const { pipeline, env } = transformers as {
@@ -278,22 +271,15 @@ export class EmbeddingService {
       env.localModelPath = this.#cacheDir
       env.allowRemoteModels = false
       env.cacheDir = this.#cacheDir
-      const onProgress = (payload: TransformersProgress): void => {
-        if (payload.status === 'progress' && typeof payload.progress === 'number') {
-          const progress = Math.min(1, payload.progress / 100)
-          this.#setWarmup({ state: 'downloading', progress, detail: payload.file ?? null })
-        }
-      }
       this.#pipe = await pipeline('feature-extraction', this.#model, {
         dtype: 'q8',
-        progress_callback: onProgress,
       })
       // Probe with a minimal input so `ready` only ever means "answered once".
       const probe = await this.#embed('ready probe', 'query')
       if (probe.length !== this.#dimensions) {
         throw new Error(`embedding dimension mismatch: model returned ${probe.length}, expected ${this.#dimensions}`)
       }
-      this.#setWarmup({ state: 'ready', progress: 1, detail: null })
+      this.#setWarmup({ state: 'ready', detail: null })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       this.#setWarmup({ state: 'error', detail: message })

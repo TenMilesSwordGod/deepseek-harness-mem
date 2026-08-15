@@ -23,13 +23,11 @@ export interface MemoryActivity {
   at: number
 }
 
-/** Embedding backend readiness, including first-use model download progress. */
+/** Embedding backend readiness. Local models only: 'loading' covers the
+ *  on-disk pipeline load; downloads have their own {@link DownloadState}. */
 export interface WarmupState {
-  /** 'idle' until first use; 'downloading' while the model files arrive. */
-  state: 'idle' | 'downloading' | 'ready' | 'error'
-  /** Download fraction 0..1; 1 once files are on disk. */
-  progress: number
-  /** Last reported file or error detail, for display. */
+  state: 'idle' | 'loading' | 'ready' | 'error'
+  /** Error detail for display. */
   detail: string | null
 }
 

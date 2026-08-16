@@ -415,7 +415,8 @@ export class MemService extends TypertRemoteService {
       }
       let text = ''
       for await (const chunk of llm.stream(options)) {
-        if (chunk.type === 'text' && chunk.text !== undefined) text += chunk.text
+        // Harness streams yield text-delta chunks (not type 'text').
+        if (chunk.type === 'text-delta' && chunk.text !== undefined) text += chunk.text
       }
       const memories = parseAutoCaptureResponse(text).slice(0, this.config.autoCaptureMaxMemories)
       for (const content of memories) {

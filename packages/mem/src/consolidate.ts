@@ -145,6 +145,17 @@ export interface LlmStreamLike {
   stream(options: Record<string, unknown>): AsyncIterable<{ type: string; text?: string }>
 }
 
+/** Accumulate visible model output from a harness stream (text-delta chunks). */
+function collectText(stream: AsyncIterable<{ type: string; text?: string }>): Promise<string> {
+  return (async () => {
+    let text = ''
+    for await (const chunk of stream) {
+      if (chunk.type === 'text-delta' && chunk.text !== undefined) text += chunk.text
+    }
+    return text
+  })()
+}
+
 /**
  * pydantic_ai-style structured output: run the model for a JSON plan and, on
  * any parse/validation failure, feed the raw output + error + schema back to
@@ -167,10 +178,7 @@ export async function analyzeConsolidatePlan(
   const messages = [...(options.messages as unknown[])]
   let lastError: Error | null = null
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    let text = ''
-    for await (const chunk of llm.stream({ ...options, messages })) {
-      if (chunk.type === 'text' && chunk.text !== undefined) text += chunk.text
-    }
+    const text = await collectText(llm.stream({ ...options, messages }))
     if (text.trim() === '') {
       lastError = new Error('empty response')
     } else {

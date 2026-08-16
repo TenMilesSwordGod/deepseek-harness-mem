@@ -222,12 +222,12 @@ ctx.plugin({
 
         // analyze retry-with-feedback: first call garbage, second valid
         const goodPlan = '{"summary":"s","changes":[{"type":"delete","id":"x","reason":"r"}]}'
-        const retryStub = { async *stream(opts) { yield { type: 'text', text: opts.messages.length === 1 ? 'not json at all' : goodPlan } } }
+        const retryStub = { async *stream(opts) { yield { type: 'text-delta', text: opts.messages.length === 1 ? 'not json at all' : goodPlan } } }
         const retried = await analyzeConsolidatePlan(retryStub, { messages: [{ role: 'user', content: 'x' }] }, (t) => ({ role: 'user', content: t }), 3)
         if (retried.changes.length !== 1) throw new Error('analyze retry failed')
         let retryFailed = false
         try {
-          await analyzeConsolidatePlan({ async *stream() { yield { type: 'text', text: 'garbage' } } }, { messages: [] }, (t) => t, 2)
+          await analyzeConsolidatePlan({ async *stream() { yield { type: 'text-delta', text: 'garbage' } } }, { messages: [] }, (t) => t, 2)
         } catch { retryFailed = true }
         if (!retryFailed) throw new Error('analyze should fail after bounded attempts')
         console.log('11g. consolidation analyze: retry-with-feedback ok')

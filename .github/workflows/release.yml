@@ -1,0 +1,65 @@
+name: release
+
+# Builds both packages on a version tag push and attaches the packed .tgz
+# artifacts to a GitHub Release. Free on public repositories (unlimited
+# minutes); install them into a profile with scripts/deploy-release.sh —
+# no Node toolchain or build needed on the target machine.
+#
+# Usage: git tag v0.1.0 && git push origin v0.1.0
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install deps (CUDA binaries skipped)
+        run: ONNXRUNTIME_NODE_INSTALL_CUDA=skip pnpm install --frozen-lockfile
+
+      - name: Build (tsc + client bundle)
+        run: pnpm build
+
+      - name: Smoke test
+        run: node scripts/smoke-host.mjs
+
+      - name: Pack host package
+        run: |
+          mkdir -p dist
+          pnpm --dir packages/mem pack --pack-destination "$GITHUB_WORKSPACE/dist"
+
+      - name: Pack client package
+        run: pnpm --dir packages/client/ui-mem pack --pack-destination "$GITHUB_WORKSPACE/dist"
+
+      - name: Normalize artifact names
+        run: |
+          mv dist/*simplemem-*.tgz dist/dsh-simplemem.tgz
+          mv dist/*dsh-client-ui-simplemem-*.tgz dist/dsh-client-ui-simplemem.tgz
+
+      - name: Publish release with artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/dsh-simplemem.tgz
+            dist/dsh-client-ui-simplemem.tgz
+          generate_release_notes: true

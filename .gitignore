@@ -4,6 +4,8 @@ lib/
 .shots/
 .buildtest/
 deploy/
+dist/
+packages/*/dist/
 
 # Test databases
 *.sqlite

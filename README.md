@@ -51,6 +51,25 @@ The selected model is persisted in the SQLite meta table and survives restarts. 
 
 ## Quick deploy
 
+### From a GitHub release (no build, recommended)
+
+Tagging the repo with `v*` triggers [GitHub Actions](.github/workflows/release.yml)
+(free on public repos) to build both packages and attach prebuilt `.tgz`
+artifacts to the release. Deploy them into a profile with one command — no
+Node toolchain or build needed, only `pnpm` and network access:
+
+```sh
+./scripts/deploy-release.sh                 # latest release, ~/.dsh/profiles/web
+./scripts/deploy-release.sh v0.1.0 ~/.dsh/profiles/web   # a specific version
+```
+
+The script downloads `dsh-simplemem.tgz` + `dsh-client-ui-simplemem.tgz` from
+the release into `<dsh-home>/storages/simplemem-dist`, installs them into the
+profile (`pnpm add`, CUDA binaries skipped), and registers the two rows in
+`cordis.patch.yml`. Re-run it to update to a newer release.
+
+### From source (dev mode)
+
 One command into your profile (default: `~/.dsh/profiles/web`):
 
 ```sh

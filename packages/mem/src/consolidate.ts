@@ -140,6 +140,55 @@ export function parseConsolidatePlan(text: string): ConsolidatePlan {
   return result.data
 }
 
+/** Minimal llm.stream shape used by {@link analyzeConsolidatePlan}. */
+export interface LlmStreamLike {
+  stream(options: Record<string, unknown>): AsyncIterable<{ type: string; text?: string }>
+}
+
+/**
+ * pydantic_ai-style structured output: run the model for a JSON plan and, on
+ * any parse/validation failure, feed the raw output + error + schema back to
+ * the model and retry (bounded). This is the guarantee when the provider has
+ * no schema-constrained decoding (the harness LLM surface does not expose
+ * `response_format`). Combined with the tolerant {@link parseConsolidatePlan},
+ * a valid object is produced unless the model fails every attempt.
+ * @param llm - the harness llm service.
+ * @param options - request options; `messages` is extended on retries.
+ * @param createUser - helper building a user message for the correction loop.
+ * @param attempts - max model calls (default 3).
+ * @throws when every attempt fails.
+ */
+export async function analyzeConsolidatePlan(
+  llm: LlmStreamLike,
+  options: Record<string, unknown>,
+  createUser: (text: string) => unknown,
+  attempts = 3,
+): Promise<ConsolidatePlan> {
+  const messages = [...(options.messages as unknown[])]
+  let lastError: Error | null = null
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    let text = ''
+    for await (const chunk of llm.stream({ ...options, messages })) {
+      if (chunk.type === 'text' && chunk.text !== undefined) text += chunk.text
+    }
+    if (text.trim() === '') {
+      lastError = new Error('empty response')
+    } else {
+      try {
+        return parseConsolidatePlan(text)
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error))
+      }
+    }
+    // Correction round: show the model what it produced and why it is invalid.
+    const preview = text.replace(/\s+/g, ' ').trim().slice(0, 600)
+    messages.push(createUser(
+      `Your previous output was not a valid JSON consolidation plan. Keep working on it and reply again with ONLY the raw JSON object.\n\nYour previous output:\n${preview === '' ? '(empty)' : preview}\n\nError: ${lastError.message}\n\nReply with only the JSON object (no markdown, no commentary).`,
+    ))
+  }
+  throw new Error(`consolidation analysis failed after ${attempts} attempts: ${lastError?.message ?? 'unknown error'}`)
+}
+
 /**
  * Execute a confirmed consolidation plan against the store.
  * Pinned memories are protected (skipped) even if the plan touches them.

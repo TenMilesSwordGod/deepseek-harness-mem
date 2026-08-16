@@ -11,7 +11,7 @@ import { join } from 'node:path'
 import { tmpdir, homedir } from 'node:os'
 import { MemService, latestUserText, renderMemoryContext, buildAutoCapturePrompt, parseAutoCaptureResponse, lastTurnTranscript } from '../packages/mem/lib/index.js'
 import { EmbeddingService } from '../packages/mem/lib/embedding.js'
-import { buildConsolidatePrompt, parseConsolidatePlan, applyConsolidatePlan } from '../packages/mem/lib/consolidate.js'
+import { buildConsolidatePrompt, parseConsolidatePlan, applyConsolidatePlan, analyzeConsolidatePlan } from '../packages/mem/lib/consolidate.js'
 
 /** Portable scratch root (CI runners have no /home/vncuser). */
 const SMOKE_ROOT = join(tmpdir(), 'simplemem-smoke')
@@ -219,6 +219,18 @@ ctx.plugin({
         if (applied.filter((a) => a.kind === 'merged').length !== 1) throw new Error('merge not applied')
         if (pinnedId !== undefined && applied.some((a) => a.id === pinnedId)) throw new Error('pinned row was touched by consolidation')
         console.log('11f. consolidation: prompt/parse/apply (pinned protected) ok')
+
+        // analyze retry-with-feedback: first call garbage, second valid
+        const goodPlan = '{"summary":"s","changes":[{"type":"delete","id":"x","reason":"r"}]}'
+        const retryStub = { async *stream(opts) { yield { type: 'text', text: opts.messages.length === 1 ? 'not json at all' : goodPlan } } }
+        const retried = await analyzeConsolidatePlan(retryStub, { messages: [{ role: 'user', content: 'x' }] }, (t) => ({ role: 'user', content: t }), 3)
+        if (retried.changes.length !== 1) throw new Error('analyze retry failed')
+        let retryFailed = false
+        try {
+          await analyzeConsolidatePlan({ async *stream() { yield { type: 'text', text: 'garbage' } } }, { messages: [] }, (t) => t, 2)
+        } catch { retryFailed = true }
+        if (!retryFailed) throw new Error('analyze should fail after bounded attempts')
+        console.log('11g. consolidation analyze: retry-with-feedback ok')
       }
 
     // auto-injection helpers: latest human text + model-facing rendering

@@ -22,7 +22,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import { realpathSync } from 'node:fs'
 import { Config, resolveConfig } from './config.js'
 import { EmbeddingService } from './embedding.js'
-import { applyConsolidatePlan, buildConsolidatePrompt, parseConsolidatePlan } from './consolidate.js'
+import { analyzeConsolidatePlan, applyConsolidatePlan, buildConsolidatePrompt, parseConsolidatePlan } from './consolidate.js'
 import { MemoryStore } from './store.js'
 import { MEM_MODELS, catalogModel } from './models.js'
 import { MEMORY_TYPERT_HOST } from './typert.js'
@@ -827,12 +827,11 @@ export class MemService extends TypertRemoteService {
       purpose: 'simplemem-consolidate',
       temperature: 0.1,
     }
-    let text = ''
-    for await (const chunk of llm.stream(options)) {
-      if (chunk.type === 'text' && chunk.text !== undefined) text += chunk.text
-    }
-    if (text.trim() === '') throw new Error('consolidation analysis returned an empty response — the model call may have failed')
-    const plan = parseConsolidatePlan(text)
+    const plan = await analyzeConsolidatePlan(
+      llm,
+      options,
+      (text) => createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'plugin', plugin: 'simplemem' } }),
+    )
     return { plan, rows, usedModel }
   }
 

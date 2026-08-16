@@ -66,7 +66,9 @@ function fakeHfServer() {
 }
 
 const dbPath = join(SMOKE_ROOT, 'memtest.sqlite')
-rmSync(SMOKE_ROOT, { recursive: true, force: true })
+// Clean only the test database, NOT the whole scratch root: CI pre-downloads
+// the embedding models into SMOKE_ROOT/mem-models and must survive startup.
+for (const suffix of ['', '-wal', '-shm']) rmSync(`${dbPath}${suffix}`, { force: true })
 // Dev convenience: reuse the real dsh model cache when the scratch cache has
 // no model yet (CI pre-downloads it via the workflow instead).
 const scratchModel = join(SMOKE_ROOT, 'mem-models', 'Xenova', 'nomic-embed-text-v1', 'onnx', 'model_quantized.onnx')

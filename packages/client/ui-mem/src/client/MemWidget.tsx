@@ -47,6 +47,8 @@ interface Toast {
 const TOAST_LIFETIME_MS = 2600
 const WARM_POLL_MS = 900
 const SEARCH_DEBOUNCE_MS = 250
+/** Only memory activity this recent (ms) animates; older is historical replay. */
+const FRESH_ACTIVITY_WINDOW_MS = 8000
 
 function unwrap<T>(result: RemoteResult<T>): T | null {
   return result.ok ? result.value : null
@@ -199,6 +201,11 @@ export function MemWidget({
   useEffect(() => {
     const last = projection?.last ?? null
     if (last === null) return
+    // The projection carries the session's persisted last activity; on
+    // session load it is replayed from the log, so only animate activity
+    // that actually just happened (fresh window) — otherwise reopening a
+    // session replays a stale toast of the previous hit every time.
+    if (Date.now() - last.at > FRESH_ACTIVITY_WINDOW_MS) return
     activityKey.current += 1
     setToast({ key: activityKey.current, kind: last.kind, text: last.text })
     setDotActive(true)

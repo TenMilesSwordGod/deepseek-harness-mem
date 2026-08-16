@@ -60,7 +60,10 @@ export function applyMemFold(state: MemProjection, event: SessionEvent): MemProj
   const kind = kindOf(event.data.name)
   if (kind === null) return state
   const next: MemProjection = {
-    last: { kind, text: snippetOf(event.data.arguments).slice(0, 140), at: Date.now() },
+    // `event.time` is the event's real wall-clock time, so a session reload
+    // (which replays the log and refolds) does NOT stamp the activity as
+    // having just happened — the widget can tell live activity from history.
+    last: { kind, text: snippetOf(event.data.arguments).slice(0, 140), at: event.time },
     counts: { ...state.counts },
   }
   if (kind === 'record') next.counts.record += 1

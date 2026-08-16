@@ -40,6 +40,18 @@ jobs:
       - name: Build (tsc + client bundle)
         run: pnpm build
 
+      - name: Cache embedding models for the smoke test
+        run: |
+          set -e
+          for model in Xenova/nomic-embed-text-v1 Xenova/all-MiniLM-L6-v2; do
+            dest="/tmp/simplemem-smoke/mem-models/$model"
+            mkdir -p "$dest/onnx"
+            for f in config.json tokenizer.json tokenizer_config.json special_tokens_map.json; do
+              curl -sL -o "$dest/$f" "https://huggingface.co/$model/resolve/main/$f"
+            done
+            curl -sL -o "$dest/onnx/model_quantized.onnx" "https://huggingface.co/$model/resolve/main/onnx/model_quantized.onnx"
+          done
+
       - name: Smoke test
         run: node scripts/smoke-host.mjs
 

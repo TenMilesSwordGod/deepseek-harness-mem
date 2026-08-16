@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-simplemem",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "simplemem web widget: memory status, quick search, stats modal for DeepSeek Harness",
   "type": "module",
   "main": "lib/index.js",

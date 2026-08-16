@@ -22,6 +22,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import { realpathSync } from 'node:fs'
 import { Config, resolveConfig } from './config.js'
 import { EmbeddingService } from './embedding.js'
+import { applyConsolidatePlan, buildConsolidatePrompt, parseConsolidatePlan } from './consolidate.js'
 import { MemoryStore } from './store.js'
 import { MEM_MODELS, catalogModel } from './models.js'
 import { MEMORY_TYPERT_HOST } from './typert.js'
@@ -32,6 +33,10 @@ import type {
   MemConfig,
   MemConfigureRequest,
   MemConfigureResponse,
+  MemConsolidateAnalyzeRequest,
+  MemConsolidateAnalyzeResponse,
+  MemConsolidateApplyRequest,
+  MemConsolidateApplyResponse,
   MemDownloadRequest,
   MemDownloadResponse,
   MemForgetRequest,
@@ -778,6 +783,71 @@ export class MemService extends TypertRemoteService {
     const updated = this.store.setPinned(id, pinned)
     if (updated) this.pushActivity(pinned ? 'record' : 'forget', id)
     return { id, pinned, updated }
+  }
+
+  /** The agent's current default LLM (provider/model) for the review window. */
+  @Remote('agentModel')
+  agentModel(): { provider: string; model: string } | null {
+    const current = this.ctx.get('agentDefaultModel') as { provider?: string; model?: string } | undefined
+    if (current === undefined || current.provider === undefined || current.model === undefined) return null
+    return { provider: current.provider, model: current.model }
+  }
+
+  /**
+   * Consolidation analysis: run the LLM over the selected memories and return
+   * a dry-run plan (merge / rewrite / retag / delete). Nothing is applied.
+   * The model can be overridden per request; otherwise the agent's current
+   * default model is used.
+   */
+  @Remote('consolidateAnalyze')
+  async consolidateAnalyze(agent: Agent, request: MemConsolidateAnalyzeRequest): Promise<MemConsolidateAnalyzeResponse> {
+    const ids = (Array.isArray(request.ids) ? request.ids : [])
+      .map((id) => String(id).trim())
+      .filter((id) => id !== '')
+      .slice(0, 200)
+    if (ids.length === 0) throw new Error('no memories selected for consolidation')
+    const rows = this.store.getByIds(ids)
+    if (rows.length === 0) throw new Error('selected memories not found')
+    const usedModel = request.model !== undefined && request.model.provider !== '' && request.model.model !== ''
+      ? { provider: request.model.provider, model: request.model.model }
+      : this.agentModel()
+    const llm = this.ctx.get('llm') as { stream(options: Record<string, unknown>): AsyncIterable<{ type: string; text?: string }> } | undefined
+    if (llm === undefined) throw new Error('llm service unavailable')
+    const system = buildConsolidatePrompt(rows, this.config.consolidateMinUseCount, this.config.consolidateHighUseCount)
+    const options: Record<string, unknown> = {
+      provider: usedModel?.provider,
+      model: usedModel?.model,
+      messages: [createUserMessage({
+        content: [{ type: 'text', text: 'Produce the consolidation plan for the memories described in the system prompt.' }],
+        source: { kind: 'plugin', plugin: 'simplemem' },
+      })],
+      system,
+      maxTokens: this.config.consolidateMaxTokens,
+      sessionId: agent.session.id,
+      purpose: 'simplemem-consolidate',
+      temperature: 0.1,
+    }
+    let text = ''
+    for await (const chunk of llm.stream(options)) {
+      if (chunk.type === 'text' && chunk.text !== undefined) text += chunk.text
+    }
+    const plan = parseConsolidatePlan(text)
+    return { plan, rows, usedModel }
+  }
+
+  /**
+   * Apply a user-confirmed consolidation plan. Pinned memories are protected
+   * even if the plan references them.
+   */
+  @Remote('consolidateApply')
+  async consolidateApply(request: MemConsolidateApplyRequest): Promise<MemConsolidateApplyResponse> {
+    const plan = parseConsolidatePlan(JSON.stringify(request.plan))
+    const applied = await applyConsolidatePlan(this.store, plan, {
+      embed: (text) => this.embedding.embed(text, 'document'),
+      dims: this.embedding.dimensions,
+      dedupThreshold: this.config.recordDedupThreshold,
+    })
+    return { applied, count: this.store.count() }
   }
 
   /** Embedding cache statistics with the top-hit ranking (stats modal). */

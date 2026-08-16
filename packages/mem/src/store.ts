@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto'
 import type { MemoryScope, MemHit } from './types.ts'
 
 /** Bump when the on-disk schema changes incompatibly. */
-const SCHEMA_VERSION = 4
+const SCHEMA_VERSION = 5
 
 /** One stored row as read from SQLite. */
 interface MemoryRow {
@@ -27,6 +27,7 @@ interface MemoryRow {
   dims: number
   enabled: number
   pinned: number
+  use_count: number
   created_at: number
 }
 
@@ -46,6 +47,7 @@ CREATE TABLE IF NOT EXISTS memories (
   dims INTEGER NOT NULL DEFAULT 0,
   enabled INTEGER NOT NULL DEFAULT 1,
   pinned INTEGER NOT NULL DEFAULT 0,
+  use_count INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
@@ -118,14 +120,18 @@ export class MemoryStore {
       // v3 -> v4: rows gain the pinned flag (always-injected rules).
       this.#db.exec('ALTER TABLE memories ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0')
       this.#db.prepare('UPDATE mem_meta SET value = ? WHERE key = ?').run(String(SCHEMA_VERSION), 'schema_version')
+    } else if (version === 4) {
+      // v4 -> v5: rows gain a retrieval usage counter (consolidation signal).
+      this.#db.exec('ALTER TABLE memories ADD COLUMN use_count INTEGER NOT NULL DEFAULT 0')
+      this.#db.prepare('UPDATE mem_meta SET value = ? WHERE key = ?').run(String(SCHEMA_VERSION), 'schema_version')
     } else if (version !== SCHEMA_VERSION) {
       throw new Error(`mem store schema version ${version} is unsupported (expected ${SCHEMA_VERSION})`)
     }
     this.#insert = this.#db.prepare(
-      'INSERT INTO memories (id, content, tags, scope, project, session_id, embedding, dims, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO memories (id, content, tags, scope, project, session_id, embedding, dims, pinned, use_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     )
     this.#selectScope = this.#db.prepare(
-      'SELECT id, content, tags, scope, project, session_id, embedding, dims, enabled, pinned, created_at FROM memories WHERE scope = ? ORDER BY created_at DESC',
+      'SELECT id, content, tags, scope, project, session_id, embedding, dims, enabled, pinned, use_count, created_at FROM memories WHERE scope = ? ORDER BY created_at DESC',
     )
     this.#setEnabled = this.#db.prepare('UPDATE memories SET enabled = ?, updated_at = ? WHERE id = ?')
     this.#updateEmbedding = this.#db.prepare(
@@ -203,12 +209,14 @@ export class MemoryStore {
     }
     const id = `mem-${randomUUID()}`
     const now = Date.now()
-    this.#insert.run(id, content, tags, scope, project, sessionId, embedding, dims, pinned ? 1 : 0, now, now)
+    this.#insert.run(id, content, tags, scope, project, sessionId, embedding, dims, pinned ? 1 : 0, 0, now, now)
     return { status: 'recorded', id }
   }
 
   /**
-   * Ranked cosine search over one scope axis.
+   * Ranked cosine search over one scope axis. Every returned hit's usage
+   * counter is incremented — the consolidation feature uses the count to
+   * decide what is rarely used (drop) vs. broadly matched (retag).
    * @param embedding - query vector.
    * @param scope - 'project' or 'global'.
    * @param project - canonical project key for project scope, else null.
@@ -238,7 +246,73 @@ export class MemoryStore {
       })
     }
     scored.sort((a, b) => b.similarity - a.similarity)
-    return scored.slice(0, limit)
+    const hits = scored.slice(0, limit)
+    for (const hit of hits) {
+      this.#db.prepare('UPDATE memories SET use_count = use_count + 1 WHERE id = ?').run(hit.id)
+    }
+    return hits
+  }
+
+  /** Load rows by id (consolidation analysis); disabled rows are excluded. */
+  getByIds(ids: string[]): Array<{
+    id: string
+    content: string
+    tags: string
+    scope: MemoryScope
+    project: string | null
+    pinned: boolean
+    enabled: boolean
+    useCount: number
+    createdAt: number
+  }> {
+    if (ids.length === 0) return []
+    const placeholders = ids.map(() => '?').join(',')
+    const rows = this.#db.prepare(
+      `SELECT id, content, tags, scope, project, pinned, enabled, use_count, created_at FROM memories WHERE id IN (${placeholders})`,
+    ).all(...ids) as unknown as Array<{
+      id: string
+      content: string
+      tags: string
+      scope: MemoryScope
+      project: string | null
+      pinned: number
+      enabled: number
+      use_count: number
+      created_at: number
+    }>
+    return rows
+      .filter((row) => row.enabled === 1)
+      .map((row) => ({
+        id: row.id,
+        content: row.content,
+        tags: row.tags,
+        scope: row.scope,
+        project: row.project,
+        pinned: row.pinned === 1,
+        enabled: true,
+        useCount: row.use_count,
+        createdAt: row.created_at,
+      }))
+  }
+
+  /** Replace one memory's content and tags (consolidation rewrite/retag). */
+  updateContent(id: string, content: string, tags: string): boolean {
+    const result = this.#db.prepare('UPDATE memories SET content = ?, tags = ?, updated_at = ? WHERE id = ?').run(content, tags, Date.now(), id)
+    return result.changes > 0
+  }
+
+  /** Rewrite one memory with fresh content, tags, and embedding (consolidation). */
+  rewrite(id: string, content: string, tags: string, embedding: Float32Array, dims: number): boolean {
+    const result = this.#db.prepare(
+      'UPDATE memories SET content = ?, tags = ?, embedding = ?, dims = ?, updated_at = ? WHERE id = ?',
+    ).run(content, tags, embedding, dims, Date.now(), id)
+    return result.changes > 0
+  }
+
+  /** Replace only the tags of one memory (consolidation retag). */
+  updateTags(id: string, tags: string): boolean {
+    const result = this.#db.prepare('UPDATE memories SET tags = ?, updated_at = ? WHERE id = ?').run(tags, Date.now(), id)
+    return result.changes > 0
   }
 
   /** Rows whose embedding dimensions differ from the active model. */
@@ -318,7 +392,7 @@ export class MemoryStore {
     sort: 'createdAtDesc' | 'createdAtAsc',
     offset: number,
     limit: number,
-  ): { items: Array<{ id: string; content: string; tags: string; scope: MemoryScope; dims: number; enabled: boolean; pinned: boolean; createdAt: number }>; total: number } {
+  ): { items: Array<{ id: string; content: string; tags: string; scope: MemoryScope; dims: number; enabled: boolean; pinned: boolean; useCount: number; createdAt: number }>; total: number } {
     const order = sort === 'createdAtAsc' ? 'ASC' : 'DESC'
     const where = scope === 'all'
       ? { sql: '1 = 1', params: [] as SQLInputValue[] }
@@ -327,7 +401,7 @@ export class MemoryStore {
         : { sql: '(scope = ? AND project = ?) OR scope = ?', params: [scope, project, 'global'] as SQLInputValue[] }
     const total = Number((this.#db.prepare(`SELECT COUNT(*) AS n FROM memories WHERE ${where.sql}`).get(...where.params) as { n: number }).n)
     const items = this.#db.prepare(
-      `SELECT id, content, tags, scope, dims, enabled, pinned, created_at FROM memories WHERE ${where.sql} ORDER BY created_at ${order} LIMIT ? OFFSET ?`,
+      `SELECT id, content, tags, scope, dims, enabled, pinned, use_count, created_at FROM memories WHERE ${where.sql} ORDER BY created_at ${order} LIMIT ? OFFSET ?`,
     ).all(...where.params, limit, offset) as unknown as Array<{
       id: string
       content: string
@@ -336,10 +410,11 @@ export class MemoryStore {
       dims: number
       enabled: number
       pinned: number
+      use_count: number
       created_at: number
     }>
     return {
-      items: items.map((row) => ({ id: row.id, content: row.content, tags: row.tags, scope: row.scope, dims: row.dims, enabled: row.enabled === 1, pinned: row.pinned === 1, createdAt: row.created_at })),
+      items: items.map((row) => ({ id: row.id, content: row.content, tags: row.tags, scope: row.scope, dims: row.dims, enabled: row.enabled === 1, pinned: row.pinned === 1, useCount: row.use_count, createdAt: row.created_at })),
       total,
     }
   }

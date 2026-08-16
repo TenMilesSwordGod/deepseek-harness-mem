@@ -160,6 +160,56 @@ const memSetPinnedRequestSchema = z.object({ id: z.string(), pinned: z.boolean()
 
 const memSetPinnedResponseSchema = z.object({ id: z.string(), pinned: z.boolean(), updated: z.boolean() })
 
+const memAgentModelResponseSchema = z.object({
+  provider: z.string(),
+  model: z.string(),
+}).nullable()
+
+const memConsolidateChangeSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('merge'), sourceIds: z.array(z.string()).min(1), content: z.string(), tags: z.string(), reason: z.string() }),
+  z.object({ type: z.literal('rewrite'), id: z.string(), content: z.string(), tags: z.string(), reason: z.string() }),
+  z.object({ type: z.literal('retag'), id: z.string(), tags: z.string(), reason: z.string() }),
+  z.object({ type: z.literal('delete'), id: z.string(), reason: z.string() }),
+])
+
+const memConsolidateAnalyzeRequestSchema = z.object({
+  ids: z.array(z.string()),
+  model: z.object({ provider: z.string(), model: z.string() }).optional(),
+})
+
+const memConsolidateAnalyzeResponseSchema = z.object({
+  plan: z.object({
+    summary: z.string(),
+    changes: z.array(memConsolidateChangeSchema),
+  }),
+  rows: z.array(z.object({
+    id: z.string(),
+    content: z.string(),
+    tags: z.string(),
+    scope: z.enum(['project', 'global']),
+    useCount: z.number(),
+    createdAt: z.number(),
+    pinned: z.boolean(),
+  })),
+  usedModel: z.object({ provider: z.string(), model: z.string() }).nullable(),
+})
+
+const memConsolidateApplyRequestSchema = z.object({
+  plan: z.object({
+    summary: z.string(),
+    changes: z.array(memConsolidateChangeSchema),
+  }),
+})
+
+const memConsolidateApplyResponseSchema = z.object({
+  applied: z.array(z.object({
+    kind: z.enum(['merged', 'rewritten', 'retagged', 'deleted']),
+    id: z.string().optional(),
+    detail: z.string(),
+  })),
+  count: z.number(),
+})
+
 const memWarmupResponseSchema = z.object({ ready: z.boolean() })
 
 const memDownloadRequestSchema = z.object({ model: z.string() })
@@ -327,6 +377,39 @@ const invocations: readonly InvocationDescriptor[] = [
       jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemSetPinnedRequest', memSetPinnedRequestSchema),
     ],
     result: codec('@deepseek-ai/dsh-simplemem/client#MemSetPinnedResponse', memSetPinnedResponseSchema),
+  },
+  {
+    id: '@deepseek-ai/dsh-simplemem#memory/agentModel',
+    service: 'memory',
+    namespace: 'memory',
+    method: 'agentModel',
+    invocation: { kind: 'direct' },
+    parameters: [],
+    result: codec('@deepseek-ai/dsh-simplemem/client#MemAgentModelResponse', memAgentModelResponseSchema),
+  },
+  {
+    id: '@deepseek-ai/dsh-simplemem#memory/consolidateAnalyze',
+    service: 'memory',
+    namespace: 'memory',
+    method: 'consolidateAnalyze',
+    invocation: { kind: 'direct' },
+    scope: { context: 'agent', wire: 'agentId' },
+    parameters: [
+      agentParam,
+      jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemConsolidateAnalyzeRequest', memConsolidateAnalyzeRequestSchema),
+    ],
+    result: codec('@deepseek-ai/dsh-simplemem/client#MemConsolidateAnalyzeResponse', memConsolidateAnalyzeResponseSchema),
+  },
+  {
+    id: '@deepseek-ai/dsh-simplemem#memory/consolidateApply',
+    service: 'memory',
+    namespace: 'memory',
+    method: 'consolidateApply',
+    invocation: { kind: 'direct' },
+    parameters: [
+      jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemConsolidateApplyRequest', memConsolidateApplyRequestSchema),
+    ],
+    result: codec('@deepseek-ai/dsh-simplemem/client#MemConsolidateApplyResponse', memConsolidateApplyResponseSchema),
   },
   {
     id: '@deepseek-ai/dsh-simplemem#memory/cacheStats',

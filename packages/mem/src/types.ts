@@ -247,6 +247,12 @@ export interface MemConfig {
   autoInjectThreshold: number
   /** Max pinned rules injected every turn; 0 disables pinned injection. */
   pinnedInjectCount: number
+  /** Consolidation: drop memories whose retrieval count is at or below this. */
+  consolidateMinUseCount: number
+  /** Consolidation: flag memories above this count as likely over-broad tags. */
+  consolidateHighUseCount: number
+  /** Max output tokens for one consolidation analysis call. */
+  consolidateMaxTokens: number
   /** Summarize completed turns and auto-record durable memories. */
   autoCapture: boolean
   /** Skip turns whose transcript is shorter than this. */
@@ -292,6 +298,8 @@ export interface MemListAllItem {
   enabled: boolean
   /** True when pinned: the memory is always injected into the prompt. */
   pinned: boolean
+  /** How many times the memory has been retrieved by search/injection. */
+  useCount: number
   createdAt: number
 }
 
@@ -321,6 +329,77 @@ export interface MemSetPinnedResponse {
   pinned: boolean
   /** True when the row was found and updated. */
   updated: boolean
+}
+
+/** agentModel() Remote result: the agent's current default LLM, or null. */
+export type MemAgentModelResponse = { provider: string; model: string } | null
+
+/** One planned change from the LLM consolidation analysis. */
+export type ConsolidateChange =
+  /** Several memories merge into one new memory (sources are deleted). */
+  | { type: 'merge'; sourceIds: string[]; content: string; tags: string; reason: string }
+  /** One memory is rewritten in place (content and/or tags replaced). */
+  | { type: 'rewrite'; id: string; content: string; tags: string; reason: string }
+  /** Only the tags change (broad-tag cleanup). */
+  | { type: 'retag'; id: string; tags: string; reason: string }
+  /** The memory is dropped (rarely used / obsolete). */
+  | { type: 'delete'; id: string; reason: string }
+
+/** Whole consolidation plan returned by the analysis. */
+export interface ConsolidatePlan {
+  /** One-line summary of what the pass does. */
+  summary: string
+  changes: ConsolidateChange[]
+}
+
+/** One memory row fed to the analysis (as the LLM sees it). */
+export interface ConsolidateRow {
+  id: string
+  content: string
+  tags: string
+  scope: MemoryScope
+  useCount: number
+  createdAt: number
+  /** Pinned memories are protected: the model must not delete/merge them. */
+  pinned: boolean
+}
+
+/** consolidate/analyze request: the selected ids and an optional model override. */
+export interface MemConsolidateAnalyzeRequest {
+  ids: string[]
+  /** Provider/model override; omit to use the agent's current default model. */
+  model?: { provider: string; model: string }
+}
+
+/** consolidate/analyze result. */
+export interface MemConsolidateAnalyzeResponse {
+  /** The model's plan (dry run — nothing applied yet). */
+  plan: ConsolidatePlan
+  /** The exact rows that were analyzed, in selection order. */
+  rows: ConsolidateRow[]
+  /** The model that produced the plan (resolved override or the default). */
+  usedModel: { provider: string; model: string } | null
+}
+
+/** consolidate/apply request: the confirmed plan is executed as-is. */
+export interface MemConsolidateApplyRequest {
+  plan: ConsolidatePlan
+}
+
+/** One executed step of a consolidation apply. */
+export interface ConsolidateApplyItem {
+  kind: 'merged' | 'rewritten' | 'retagged' | 'deleted'
+  /** The new memory id for merges; the source id otherwise. */
+  id?: string
+  /** Human-readable outcome (what was merged/deleted/rewritten into what). */
+  detail: string
+}
+
+/** consolidate/apply result. */
+export interface MemConsolidateApplyResponse {
+  applied: ConsolidateApplyItem[]
+  /** Total memories after the pass. */
+  count: number
 }
 
 /** warmup() Remote result. */

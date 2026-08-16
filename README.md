@@ -22,13 +22,15 @@ It gives the coding agent a durable, SQLite-backed memory with local CPU embeddi
 - SQLite storage on `node:sqlite` (zero native dependencies), with a monotonic `SCHEMA_VERSION` and automatic migration.
 - Local embeddings via `@huggingface/transformers` (ONNX, CPU), with per-model task prefixes (`search_document:`/`search_query:` for nomic, `passage:`/`query:` for e5, none for MiniLM/jina), mean pooling, L2 normalization, and an LRU cache.
 - Switching to a model with different dimensions shows a **转换索引 (re-embed) button** — stored memories stay untouched until you click it, then migrate in the background with live progress.
-- Typert Remote API for the widget: `memory/status`, `memory/models`, `memory/configure`, `memory/search`, `memory/record`, `memory/list`, `memory/listAll`, `memory/cacheStats`, `memory/forget`.
+- **AI consolidation** — select memories in the stats modal (or select all) and run the LLM over them (current model by default, freely switchable): dedupe near-twins, drop rarely-used entries (usage counter), narrow over-broad tags, and rewrite vague ones. The analysis is a **dry run** shown in a standalone window with a vimdiff-style before/after comparison and mind-map connector lines; nothing is applied until you confirm. Pinned rules are protected.
+- Typert Remote API for the widget: `memory/status`, `memory/models`, `memory/configure`, `memory/search`, `memory/record`, `memory/list`, `memory/listAll`, `memory/cacheStats`, `memory/forget`, `memory/setPinned`, `memory/agentModel`, `memory/consolidateAnalyze`, `memory/consolidateApply`.
 
 **For the human (client plugin `@deepseek-ai/dsh-client-ui-simplemem`)**
 
 - A pill button in the top-right header (`conversation.session.header.utilities`): state dot (ready / warming / error) + memory count.
 - Panel: backend status, **embedding model selector**, cache tip, quick semantic search with similarity scores, manual record, per-item delete, and a strategy hint.
-- A **统计 (stats) button inside the panel header** that opens its own standalone modal: overview cards (total / cache hits / hit rate / cache size), the **full memory list** (paginated, scope tabs 全部/项目/全局, date-sortable) with per-row **add / delete / enable / disable** (disabled memories stay stored but leave search and dedup; shown struck-through with a toggle), and the **embedding cache hit ranking** (sortable by hit count).
+- A **统计 (stats) button inside the panel header** that opens its own standalone modal: overview cards (total / cache hits / hit rate / cache size), the **full memory list** (paginated, scope tabs 全部/项目/全局, date-sortable, **usage counts**, multi-select + select-all) with per-row **add / delete / enable / disable / pin** (disabled memories stay stored but leave search and dedup; shown struck-through with a toggle), and the **embedding cache hit ranking** (sortable by hit count).
+- **AI 整理记忆 (consolidate) window** — opened from the stats modal selection bar: model selector (current model or a `provider:model` override), a live analysis progress state, then the plan as **change cards**: each card shows the source memories flowing into the result via **SVG connector lines** (mind-map style), a **vimdiff-style side-by-side diff** (red deletions / green additions), the reason, and a merge/rewrite/retag/delete badge. Confirm to apply; the result view lists exactly what happened (merged into a new memory / rewritten / retagged / deleted).
 - **Fluent animations**: the dot chases while the model warms up, the chip pulses and a toast slides in the moment the AI records or searches (driven by a session projection over `tool/call` events), results stagger in, the cache tip crossfades on model switch. All animations respect `prefers-reduced-motion`.
 - UI copy is Chinese (matching the harness), with English fallback via the locale plugin; all styles use the shared `--dsw-*` design tokens (light + dark).
 
@@ -166,6 +168,9 @@ All keys live under the `mem` row's `config` (schemastery-validated); `embedding
 | `maxRecordChars` | `4000` | Hard cap per recorded content |
 | `activityRingSize` | `8` | Host-side recent-activity ring for the widget |
 | `pinnedInjectCount` | `4` | Max pinned rules injected every turn; 0 disables pinned injection |
+| `consolidateMinUseCount` | `1` | Consolidation: memories at or below this retrieval count are suggested for deletion |
+| `consolidateHighUseCount` | `50` | Consolidation: memories at or above this count are flagged as over-broad tags |
+| `consolidateMaxTokens` | `2048` | Max output tokens for one consolidation analysis call |
 
 ---
 

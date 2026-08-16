@@ -14,6 +14,10 @@ import type {
   MemCancelDownloadResponse,
   MemConfigureRequest,
   MemConfigureResponse,
+  MemConsolidateAnalyzeRequest,
+  MemConsolidateAnalyzeResponse,
+  MemConsolidateApplyRequest,
+  MemConsolidateApplyResponse,
   MemDownloadRequest,
   MemDownloadResponse,
   MemForgetRequest,
@@ -165,6 +169,8 @@ const memListAllResponseSchema = z.object({
     dims: z.number(),
     enabled: z.boolean(),
     pinned: z.boolean(),
+    // Optional: older hosts do not send it yet; the UI defaults to 0.
+    useCount: z.number().optional(),
     createdAt: z.number(),
   })),
   total: z.number(),
@@ -179,6 +185,56 @@ const memSetEnabledResponseSchema = z.object({ id: z.string(), enabled: z.boolea
 const memSetPinnedRequestSchema = z.object({ id: z.string(), pinned: z.boolean() })
 
 const memSetPinnedResponseSchema = z.object({ id: z.string(), pinned: z.boolean(), updated: z.boolean() })
+
+const memAgentModelResponseSchema = z.object({
+  provider: z.string(),
+  model: z.string(),
+}).nullable()
+
+const memConsolidateChangeSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('merge'), sourceIds: z.array(z.string()).min(1), content: z.string(), tags: z.string(), reason: z.string() }),
+  z.object({ type: z.literal('rewrite'), id: z.string(), content: z.string(), tags: z.string(), reason: z.string() }),
+  z.object({ type: z.literal('retag'), id: z.string(), tags: z.string(), reason: z.string() }),
+  z.object({ type: z.literal('delete'), id: z.string(), reason: z.string() }),
+])
+
+const memConsolidateAnalyzeRequestSchema = z.object({
+  ids: z.array(z.string()),
+  model: z.object({ provider: z.string(), model: z.string() }).optional(),
+})
+
+const memConsolidateAnalyzeResponseSchema = z.object({
+  plan: z.object({
+    summary: z.string(),
+    changes: z.array(memConsolidateChangeSchema),
+  }),
+  rows: z.array(z.object({
+    id: z.string(),
+    content: z.string(),
+    tags: z.string(),
+    scope: z.enum(['project', 'global']),
+    useCount: z.number(),
+    createdAt: z.number(),
+    pinned: z.boolean(),
+  })),
+  usedModel: z.object({ provider: z.string(), model: z.string() }).nullable(),
+})
+
+const memConsolidateApplyRequestSchema = z.object({
+  plan: z.object({
+    summary: z.string(),
+    changes: z.array(memConsolidateChangeSchema),
+  }),
+})
+
+const memConsolidateApplyResponseSchema = z.object({
+  applied: z.array(z.object({
+    kind: z.enum(['merged', 'rewritten', 'retagged', 'deleted']),
+    id: z.string().optional(),
+    detail: z.string(),
+  })),
+  count: z.number(),
+})
 
 const memWarmupResponseSchema = z.object({ ready: z.boolean() })
 
@@ -356,6 +412,39 @@ export const memoryRemote: TypertRemoteContribution = {
       result: codec('@deepseek-ai/dsh-simplemem/client#MemSetPinnedResponse', memSetPinnedResponseSchema),
     },
     {
+      id: '@deepseek-ai/dsh-simplemem#memory/agentModel',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'agentModel',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemAgentModelResponse', memAgentModelResponseSchema),
+    },
+    {
+      id: '@deepseek-ai/dsh-simplemem#memory/consolidateAnalyze',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'consolidateAnalyze',
+      invocation: { kind: 'direct' },
+      scope: { context: 'agent', wire: 'agentId' },
+      parameters: [
+        sessionParam,
+        jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemConsolidateAnalyzeRequest', memConsolidateAnalyzeRequestSchema),
+      ],
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemConsolidateAnalyzeResponse', memConsolidateAnalyzeResponseSchema),
+    },
+    {
+      id: '@deepseek-ai/dsh-simplemem#memory/consolidateApply',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'consolidateApply',
+      invocation: { kind: 'direct' },
+      parameters: [
+        jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemConsolidateApplyRequest', memConsolidateApplyRequestSchema),
+      ],
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemConsolidateApplyResponse', memConsolidateApplyResponseSchema),
+    },
+    {
       id: '@deepseek-ai/dsh-simplemem#memory/cacheStats',
       service: 'memory',
       namespace: 'memory',
@@ -404,6 +493,9 @@ export interface MemoryRemoteNamespace {
   listAll(sessionId: SessionId, request: MemListAllRequest): Promise<RemoteResult<MemListAllResponse>>
   setEnabled(request: MemSetEnabledRequest): Promise<RemoteResult<MemSetEnabledResponse>>
   setPinned(request: MemSetPinnedRequest): Promise<RemoteResult<MemSetPinnedResponse>>
+  agentModel(): Promise<RemoteResult<{ provider: string; model: string } | null>>
+  consolidateAnalyze(sessionId: SessionId, request: MemConsolidateAnalyzeRequest): Promise<RemoteResult<MemConsolidateAnalyzeResponse>>
+  consolidateApply(request: MemConsolidateApplyRequest): Promise<RemoteResult<MemConsolidateApplyResponse>>
   search(sessionId: SessionId, request: MemSearchRequest): Promise<RemoteResult<MemSearchResponse>>
   record(sessionId: SessionId, request: MemRecordRequest): Promise<RemoteResult<MemRecordResponse>>
   list(sessionId: SessionId, request: MemListRequest): Promise<RemoteResult<MemListResponse>>

@@ -133,6 +133,9 @@ export function MemWidget({
   listAll,
   setEnabled,
   setPinned,
+  agentModel,
+  consolidateAnalyze,
+  consolidateApply,
   search,
   record,
   forget,
@@ -609,6 +612,9 @@ export function MemWidget({
         listAll={listAll}
         setEnabled={setEnabled}
         setPinned={setPinned}
+        agentModel={agentModel}
+        consolidateAnalyze={consolidateAnalyze}
+        consolidateApply={consolidateApply}
         forget={forget}
         record={record}
       />

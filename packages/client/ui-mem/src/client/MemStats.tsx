@@ -10,6 +10,8 @@ import { useCallback, useEffect, useState } from 'react'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   MemCacheStats,
+  MemConsolidateAnalyzeResponse,
+  MemConsolidateApplyResponse,
   MemForgetResponse,
   MemListAllItem,
   MemListAllRequest,
@@ -17,8 +19,10 @@ import type {
   MemRecordResponse,
   MemSetEnabledResponse,
   MemSetPinnedResponse,
+  ConsolidatePlan,
 } from '@deepseek-ai/dsh-simplemem/client'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import { MemConsolidateWindow } from './MemConsolidateWindow.tsx'
 
 /** Stats verbs shared with the widget's inject face. */
 export interface MemStatsActions {
@@ -26,6 +30,9 @@ export interface MemStatsActions {
   listAll(request: MemListAllRequest): Promise<RemoteResult<MemListAllResponse>>
   setEnabled(id: string, enabled: boolean): Promise<RemoteResult<MemSetEnabledResponse>>
   setPinned(id: string, pinned: boolean): Promise<RemoteResult<MemSetPinnedResponse>>
+  agentModel(): Promise<RemoteResult<{ provider: string; model: string } | null>>
+  consolidateAnalyze(ids: string[], model?: { provider: string; model: string }): Promise<RemoteResult<MemConsolidateAnalyzeResponse>>
+  consolidateApply(plan: ConsolidatePlan): Promise<RemoteResult<MemConsolidateApplyResponse>>
   forget(id: string): Promise<RemoteResult<MemForgetResponse>>
   record(content: string, tags: string, scope: 'project' | 'global', pinned?: boolean): Promise<RemoteResult<MemRecordResponse>>
 }
@@ -72,7 +79,7 @@ function IconClose(): JSX.Element {
 }
 
 /** Standalone stats dialog rendered from the memory panel's 统计 button. */
-export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnabled, setPinned, forget, record }: MemStatsModalProps): JSX.Element | null {
+export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnabled, setPinned, agentModel, consolidateAnalyze, consolidateApply, forget, record }: MemStatsModalProps): JSX.Element | null {
   const [cache, setCache] = useState<MemCacheStats | null>(null)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
@@ -86,6 +93,8 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
   const [dateSort, setDateSort] = useState<DateSort>('createdAtDesc')
   const [hitsSort, setHitsSort] = useState<HitsSort>('hitsDesc')
   const [loading, setLoading] = useState(false)
+  const [selected, setSelected] = useState<string[]>([])
+  const [consOpen, setConsOpen] = useState(false)
 
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -149,6 +158,24 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
       }
     })
   }, [forget])
+
+  // Multi-select for consolidation.
+  const toggleSelect = useCallback((id: string) => {
+    setSelected((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]))
+  }, [])
+
+  const toggleSelectAll = useCallback(() => {
+    setSelected((current) => (current.length === items.length && items.every((item) => current.includes(item.id))
+      ? []
+      : [...new Set([...current, ...items.map((item) => item.id)])]))
+  }, [items])
+
+  const clearSelection = useCallback(() => setSelected([]), [])
+
+  // Selection is per open; drop it when the modal closes or the page changes.
+  useEffect(() => {
+    if (!open) setSelected([])
+  }, [open])
 
   // Open: load cache stats + first list page; close on Escape / mask click.
   useEffect(() => {
@@ -285,10 +312,42 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
             </div>
           </div>
 
+          <div className="dshmem-stats-selection">
+            <label className="dshmem-stats-selall">
+              <input
+                type="checkbox"
+                checked={items.length > 0 && items.every((item) => selected.includes(item.id))}
+                onChange={toggleSelectAll}
+              />
+              <span>{t('consSelectAll')}</span>
+            </label>
+            <span className="dshmem-stats-selected-count">{selected.length} {t('consSelected')}</span>
+            {selected.length > 0 && (
+              <button type="button" className="dshmem-stats-clear" onClick={clearSelection}>{t('consClear')}</button>
+            )}
+            <button
+              type="button"
+              className="dshmem-cons-open-btn"
+              disabled={selected.length === 0}
+              onClick={() => { setConsOpen(true) }}
+            >
+              ✨ {t('consTitle')}
+            </button>
+          </div>
+
           <div className="dshmem-stats-table">
             <div className="dshmem-stats-row dshmem-stats-row-head">
+              <span className="dshmem-stats-col-check">
+                <input
+                  type="checkbox"
+                  checked={items.length > 0 && items.every((item) => selected.includes(item.id))}
+                  onChange={toggleSelectAll}
+                  aria-label={t('consSelectAll')}
+                />
+              </span>
               <span className="dshmem-stats-col-content">{t('statsContent')}</span>
               <span className="dshmem-stats-col-scope">{t('statsScope')}</span>
+              <span className="dshmem-stats-col-use">{t('statsUse')}</span>
               <span className="dshmem-stats-col-dims">{t('statsDims')}</span>
               <button type="button" className="dshmem-stats-col-date" onClick={onDateSort}>
                 {t('statsCreatedAt')} {dateSort === 'createdAtDesc' ? '↓' : '↑'}
@@ -299,12 +358,23 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
               <div className="dshmem-stats-empty">{t('statsEmpty')}</div>
             )}
             {items.map((item) => (
-              <div className="dshmem-stats-row" key={item.id} data-disabled={!item.enabled || undefined}>
+              <div className="dshmem-stats-row" key={item.id} data-disabled={!item.enabled || undefined} data-selected={selected.includes(item.id) || undefined}>
+                <span className="dshmem-stats-col-check">
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(item.id)}
+                    onChange={() => { toggleSelect(item.id) }}
+                    aria-label={t('consSelect')}
+                  />
+                </span>
                 <span className="dshmem-stats-col-content" title={item.content}>
                   {item.pinned && <span className="dshmem-stats-pin-badge">{t('pinned')}</span>}
                   {item.content}
                 </span>
                 <span className="dshmem-stats-col-scope">{item.scope === 'global' ? t('scopeGlobal') : t('scopeProject')}</span>
+                <span className="dshmem-stats-col-use" title={(item.useCount ?? 0) >= 50 ? t('consHighUseTip') : undefined}>
+                  {item.useCount ?? 0}
+                </span>
                 <span className="dshmem-stats-col-dims">{item.dims}</span>
                 <span className="dshmem-stats-col-date">{new Date(item.createdAt).toLocaleString()}</span>
                 <span className="dshmem-stats-col-actions">
@@ -379,6 +449,17 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
           </div>
         </div>
       </div>
+
+      <MemConsolidateWindow
+        open={consOpen}
+        onClose={() => { setConsOpen(false) }}
+        onApplied={() => { clearSelection(); reload() }}
+        ids={selected}
+        t={t}
+        agentModel={agentModel}
+        consolidateAnalyze={consolidateAnalyze}
+        consolidateApply={consolidateApply}
+      />
     </div>
   )
 }

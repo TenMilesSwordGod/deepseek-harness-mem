@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { tmpdir, homedir } from 'node:os'
 import { MemService, latestUserText, renderMemoryContext, buildAutoCapturePrompt, parseAutoCaptureResponse, lastTurnTranscript } from '../packages/mem/lib/index.js'
 import { EmbeddingService } from '../packages/mem/lib/embedding.js'
+import { buildConsolidatePrompt, parseConsolidatePlan, applyConsolidatePlan } from '../packages/mem/lib/consolidate.js'
 
 /** Portable scratch root (CI runners have no /home/vncuser). */
 const SMOKE_ROOT = join(tmpdir(), 'simplemem-smoke')
@@ -180,6 +181,45 @@ ctx.plugin({
       const pinnedList2 = service.store.pinnedRules(SMOKE_PROJECT, 10)
       if (pinnedList2.some((row) => row.id === pinnedRecorded.id)) throw new Error('unpinned rule still listed')
       console.log('11e. pinned rules: record(pinned) -> pinnedRules -> setPinned ok')
+
+      // ── consolidation: prompt / plan parse / apply pure helpers ──
+      {
+        const consRows = service.store.getByIds(service.store.listAll('all', null, 'createdAtDesc', 0, 100).items.map((i) => i.id))
+        const prompt = buildConsolidatePrompt(
+          [{ id: 'a', content: 'x', tags: '', scope: 'project', useCount: 0, createdAt: 0, pinned: true }, ...consRows],
+          1,
+          50,
+        )
+        if (!prompt.includes('DEDUPE') || !prompt.includes('PROTECTED')) throw new Error('consolidate prompt wrong')
+        if (!prompt.includes(String(service.config.consolidateMinUseCount))) throw new Error('consolidate prompt missing thresholds')
+        const parsed = parseConsolidatePlan('```json\n{"summary":"s","changes":[{"type":"delete","id":"x","reason":"r"}]}\n```')
+        if (parsed.changes.length !== 1 || parsed.changes[0].type !== 'delete') throw new Error('parseConsolidatePlan wrong')
+        let threw = false
+        try { parseConsolidatePlan('not json') } catch { threw = true }
+        if (!threw) throw new Error('parseConsolidatePlan should reject non-JSON')
+        let badThrew = false
+        try { parseConsolidatePlan('{"summary":"s","changes":[{"type":"bogus"}]}') } catch { badThrew = true }
+        if (!badThrew) throw new Error('parseConsolidatePlan should reject invalid changes')
+        // apply: merge two + delete one + attempt to touch a pinned row (skipped)
+        const target = service.store.listAll('all', null, 'createdAtDesc', 0, 100).items[0]
+        const pinnedId = service.store.listAll('all', null, 'createdAtDesc', 0, 100).items.find((i) => i.pinned)?.id
+        const plan = {
+          summary: 'smoke',
+          changes: [
+            { type: 'merge', sourceIds: [target.id], content: 'merged smoke memory', tags: 'smoke', reason: 'r' },
+            { type: 'delete', id: target.id, reason: 'duplicate after merge' },
+            ...(pinnedId === undefined ? [] : [{ type: 'delete', id: pinnedId, reason: 'should be protected' }]),
+          ],
+        }
+        const applied = await applyConsolidatePlan(service.store, plan, {
+          embed: async (text) => service.embedding.embed(text, 'document'),
+          dims: service.embedding.dimensions,
+          dedupThreshold: service.config.recordDedupThreshold,
+        })
+        if (applied.filter((a) => a.kind === 'merged').length !== 1) throw new Error('merge not applied')
+        if (pinnedId !== undefined && applied.some((a) => a.id === pinnedId)) throw new Error('pinned row was touched by consolidation')
+        console.log('11f. consolidation: prompt/parse/apply (pinned protected) ok')
+      }
 
     // auto-injection helpers: latest human text + model-facing rendering
     const fakeEvents = [

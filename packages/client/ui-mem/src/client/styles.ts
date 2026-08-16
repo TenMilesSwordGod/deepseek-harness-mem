@@ -1153,6 +1153,60 @@ export const memStyles = `
   font-weight: 500;
 }
 
+/* ── Pinned rules ────────────────────────────────────────────────── */
+
+.dshmem-record-pinned {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--dsw-alias-state-business-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.dshmem-record-pinned input {
+  accent-color: var(--dsw-alias-state-business-primary);
+  margin: 0;
+}
+
+.dshmem-record-pinned-tip {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+}
+
+.dshmem-record-pinned-inline {
+  color: var(--dsw-alias-label-primary);
+}
+
+.dshmem-stats-pin-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--dsw-alias-state-business-primary);
+  color: var(--dsw-alias-label-primary-inverted);
+  font-size: 10px;
+  vertical-align: 1px;
+}
+
+.dshmem-stats-pinbtn {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  opacity: 0.45;
+  filter: grayscale(1);
+  transition: opacity 120ms ease, filter 120ms ease;
+}
+
+.dshmem-stats-pinbtn[data-on] {
+  opacity: 1;
+  filter: none;
+}
+
 /* ── Reduced motion ───────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {

@@ -16,6 +16,7 @@ import type {
   MemListAllResponse,
   MemRecordResponse,
   MemSetEnabledResponse,
+  MemSetPinnedResponse,
 } from '@deepseek-ai/dsh-simplemem/client'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 
@@ -24,8 +25,9 @@ export interface MemStatsActions {
   cacheStats(): Promise<RemoteResult<MemCacheStats>>
   listAll(request: MemListAllRequest): Promise<RemoteResult<MemListAllResponse>>
   setEnabled(id: string, enabled: boolean): Promise<RemoteResult<MemSetEnabledResponse>>
+  setPinned(id: string, pinned: boolean): Promise<RemoteResult<MemSetPinnedResponse>>
   forget(id: string): Promise<RemoteResult<MemForgetResponse>>
-  record(content: string, tags: string, scope: 'project' | 'global'): Promise<RemoteResult<MemRecordResponse>>
+  record(content: string, tags: string, scope: 'project' | 'global', pinned?: boolean): Promise<RemoteResult<MemRecordResponse>>
 }
 
 /** Controlled modal props: open state, close verb, locale seat, data verbs. */
@@ -70,11 +72,12 @@ function IconClose(): JSX.Element {
 }
 
 /** Standalone stats dialog rendered from the memory panel's 统计 button. */
-export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnabled, forget, record }: MemStatsModalProps): JSX.Element | null {
+export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnabled, setPinned, forget, record }: MemStatsModalProps): JSX.Element | null {
   const [cache, setCache] = useState<MemCacheStats | null>(null)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
   const [draftScope, setDraftScope] = useState<'project' | 'global'>('project')
+  const [draftPinned, setDraftPinned] = useState(false)
   const [saving, setSaving] = useState(false)
   const [items, setItems] = useState<MemListAllItem[]>([])
   const [total, setTotal] = useState(0)
@@ -111,15 +114,16 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
     const content = draft.trim()
     if (content === '' || saving) return
     setSaving(true)
-    void record(content, '', draftScope).then((result) => {
+    void record(content, '', draftScope, draftPinned).then((result) => {
       setSaving(false)
       if (result.ok) {
         setDraft('')
+        setDraftPinned(false)
         setAdding(false)
         reload()
       }
     })
-  }, [draft, draftScope, saving, record, reload])
+  }, [draft, draftScope, draftPinned, saving, record, reload])
 
   const onToggle = useCallback((id: string, enabled: boolean) => {
     void setEnabled(id, enabled).then((result) => {
@@ -128,6 +132,14 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
       }
     })
   }, [setEnabled])
+
+  const onPin = useCallback((id: string, pinned: boolean) => {
+    void setPinned(id, pinned).then((result) => {
+      if (result.ok && result.value.updated) {
+        setItems((current) => current.map((item) => (item.id === id ? { ...item, pinned: result.value.pinned } : item)))
+      }
+    })
+  }, [setPinned])
 
   const onDelete = useCallback((id: string) => {
     void forget(id).then((result) => {
@@ -207,6 +219,14 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
               onChange={(event) => { setDraft(event.target.value) }}
             />
             <div className="dshmem-stats-add-row">
+              <label className="dshmem-record-pinned dshmem-record-pinned-inline">
+                <input
+                  type="checkbox"
+                  checked={draftPinned}
+                  onChange={(event) => { setDraftPinned(event.target.checked) }}
+                />
+                <span>{t('pinnedLabel')}</span>
+              </label>
               <select
                 className="dshmem-stats-add-scope"
                 value={draftScope}
@@ -280,7 +300,10 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
             )}
             {items.map((item) => (
               <div className="dshmem-stats-row" key={item.id} data-disabled={!item.enabled || undefined}>
-                <span className="dshmem-stats-col-content" title={item.content}>{item.content}</span>
+                <span className="dshmem-stats-col-content" title={item.content}>
+                  {item.pinned && <span className="dshmem-stats-pin-badge">{t('pinned')}</span>}
+                  {item.content}
+                </span>
                 <span className="dshmem-stats-col-scope">{item.scope === 'global' ? t('scopeGlobal') : t('scopeProject')}</span>
                 <span className="dshmem-stats-col-dims">{item.dims}</span>
                 <span className="dshmem-stats-col-date">{new Date(item.createdAt).toLocaleString()}</span>
@@ -293,6 +316,15 @@ export function MemStatsModal({ open, onClose, t, cacheStats, listAll, setEnable
                     onClick={() => { onToggle(item.id, !item.enabled) }}
                   >
                     <span className="dshmem-stats-toggle-knob" />
+                  </button>
+                  <button
+                    type="button"
+                    className="dshmem-stats-pinbtn"
+                    data-on={item.pinned || undefined}
+                    title={item.pinned ? t('unpin') : t('pin')}
+                    onClick={() => { onPin(item.id, !item.pinned) }}
+                  >
+                    📌
                   </button>
                   <button
                     type="button"

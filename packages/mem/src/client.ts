@@ -33,6 +33,8 @@ export type {
   MemSearchResponse,
   MemSetEnabledRequest,
   MemSetEnabledResponse,
+  MemSetPinnedRequest,
+  MemSetPinnedResponse,
   MemStatus,
   MemWarmupResponse,
   MemoryActivity,

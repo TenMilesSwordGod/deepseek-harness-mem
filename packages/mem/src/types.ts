@@ -158,6 +158,9 @@ export interface MemRecordRequest {
   tags?: string
   /** Scoping axis; default 'project'. */
   scope?: MemoryScope
+  /** Pin this memory: it is then always injected into the prompt, bypassing
+   *  the similarity gate. Use for absolute rules the user stated. */
+  pinned?: boolean
 }
 
 /** Record Remote result: either stored, or deduplicated against a near twin. */
@@ -242,6 +245,8 @@ export interface MemConfig {
   autoInjectCount: number
   /** Minimum similarity for auto-injected memories. */
   autoInjectThreshold: number
+  /** Max pinned rules injected every turn; 0 disables pinned injection. */
+  pinnedInjectCount: number
   /** Summarize completed turns and auto-record durable memories. */
   autoCapture: boolean
   /** Skip turns whose transcript is shorter than this. */
@@ -285,6 +290,8 @@ export interface MemListAllItem {
   dims: number
   /** False when the memory is disabled (excluded from search and dedup). */
   enabled: boolean
+  /** True when pinned: the memory is always injected into the prompt. */
+  pinned: boolean
   createdAt: number
 }
 
@@ -298,6 +305,20 @@ export interface MemSetEnabledRequest {
 export interface MemSetEnabledResponse {
   id: string
   enabled: boolean
+  /** True when the row was found and updated. */
+  updated: boolean
+}
+
+/** Pin/unpin request (pinned rules are always injected, no similarity gate). */
+export interface MemSetPinnedRequest {
+  id: string
+  pinned: boolean
+}
+
+/** Pin/unpin result. */
+export interface MemSetPinnedResponse {
+  id: string
+  pinned: boolean
   /** True when the row was found and updated. */
   updated: boolean
 }

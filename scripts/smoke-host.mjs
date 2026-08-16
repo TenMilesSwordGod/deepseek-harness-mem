@@ -155,6 +155,17 @@ ctx.plugin({
       if (!forgotten.forgotten) throw new Error('tool forget failed')
       console.log('11b. tools execute + output schemas validate (record/search/forget)')
 
+      // pinned rules: record with pinned, verify always-inject listing + unpin
+      const pinnedRecorded = await recordTool.execute({ content: 'never restart the harness server without explicit user approval', pinned: true }, exec)
+      validate(recordTool, pinnedRecorded)
+      const pinnedList = service.store.pinnedRules('/home/vncuser/workdir', 10)
+      if (!pinnedList.some((row) => row.id === pinnedRecorded.id)) throw new Error('pinned rule missing from pinnedRules')
+      const unpin = service.setPinned({ id: pinnedRecorded.id, pinned: false })
+      if (!unpin.updated) throw new Error('setPinned failed')
+      const pinnedList2 = service.store.pinnedRules('/home/vncuser/workdir', 10)
+      if (pinnedList2.some((row) => row.id === pinnedRecorded.id)) throw new Error('unpinned rule still listed')
+      console.log('11e. pinned rules: record(pinned) -> pinnedRules -> setPinned ok')
+
     // auto-injection helpers: latest human text + model-facing rendering
     const fakeEvents = [
       { type: 'user/message', seq: 1, data: { source: { kind: 'user' }, content: [{ type: 'text', text: '  which python tool should we use?  ' }] } },
@@ -163,8 +174,10 @@ ctx.plugin({
     ]
     const text = latestUserText({ events: fakeEvents })
     if (text !== 'which python tool should we use?') throw new Error(`latestUserText wrong: ${text}`)
-    const rendered = renderMemoryContext([{ content: 'prefer uv for python', similarity: 0.8 }])
+    const rendered = renderMemoryContext([{ content: 'never restart the harness server without asking' }], [{ content: 'prefer uv for python', similarity: 0.8 }])
     if (!rendered.includes('prefer uv for python') || !rendered.includes('Relevant memories')) throw new Error('renderMemoryContext wrong')
+    if (!rendered.includes('Fixed rules') || !rendered.includes('never restart the harness server')) throw new Error('renderMemoryContext pinned block wrong')
+    if (renderMemoryContext([], []) !== '') throw new Error('renderMemoryContext empty should be empty string')
     console.log('11c. latestUserText (skips goal-sourced) + renderMemoryContext ok')
 
     // auto-capture helpers: prompt, response parsing, turn transcript

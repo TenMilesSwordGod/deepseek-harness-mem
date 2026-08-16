@@ -36,12 +36,15 @@ import type {
   MemDownloadResponse,
   MemForgetRequest,
   MemForgetResponse,
+  MemHit,
   MemListAllRequest,
   MemListAllResponse,
   MemListRequest,
   MemListResponse,
   MemSetEnabledRequest,
   MemSetEnabledResponse,
+  MemSetPinnedRequest,
+  MemSetPinnedResponse,
   MemModelsResponse,
   MemProjection,
   MemRecordRequest,
@@ -105,6 +108,10 @@ const MEMORY_GUIDANCE = [
   '',
   'Do NOT record every interaction or transient conversation details — only what would help a future session.',
   'Memories are scoped: "project" stores into the current working-directory tree (the default), "global" applies everywhere. Prefer project scope; use global only for cross-project user preferences. Use simplemem_record / simplemem_search / simplemem_forget for explicit reads and writes.',
+  '',
+  'FIXED RULES (simplemem_record with pinned: true):',
+  '- When the user states an absolute rule — "never", "always", "must", "禁止", "绝不能" — record it with pinned: true so it is ALWAYS injected, regardless of similarity.',
+  '- Pinned rules are always active: even when the current task seems to imply otherwise, follow them or ask the user first.',
 ].join('\n')
 
 /** Tool-pair presentation: a generic card titled in the product language. */
@@ -162,13 +169,23 @@ export function latestUserText(session: Session): string | null {
  * Model-facing rendering of the injected memory context section.
  * @param hits - ranked hits to inject.
  */
-export function renderMemoryContext(hits: Array<{ content: string; similarity: number }>): string {
-  const lines = hits.map((hit) => `- ${hit.content}`)
-  return [
-    'Relevant memories retrieved from persistent memory (use them silently as context):',
-    ...lines,
-    'Use these as background knowledge. Do not mention the memory system, and do not re-record these facts unless they change.',
-  ].join('\n')
+export function renderMemoryContext(
+  pinned: Array<{ content: string }>,
+  hits: Array<{ content: string; similarity: number }>,
+): string {
+  const lines: string[] = []
+  if (pinned.length > 0) {
+    lines.push('Fixed rules (always active — follow them even when the current task seems to imply otherwise):')
+    lines.push(...pinned.map((entry) => `- ${entry.content}`))
+    lines.push('')
+  }
+  if (hits.length > 0) {
+    lines.push('Relevant memories retrieved from persistent memory (use them silently as context):')
+    lines.push(...hits.map((hit) => `- ${hit.content}`))
+  }
+  if (lines.length === 0) return ''
+  lines.push('Use these as background knowledge. Do not mention the memory system, and do not re-record these facts unless they change.')
+  return lines.join('\n')
 }
 
 /**
@@ -307,34 +324,41 @@ export class MemService extends TypertRemoteService {
       const agent = context.agent ?? (context.scope === undefined ? undefined : ctx.agents.get(context.scope as import('@deepseek-ai/dsh-session').SessionId))
       const session = agent?.session
       if (session === undefined) return result
+      // Pinned rules first: a plain row read, always injected regardless of
+      // similarity and embedding warmth (the cold-start-safe half).
+      const project = projectOf(session)
+      const pinned = this.config.pinnedInjectCount > 0
+        ? this.store.pinnedRules(project, this.config.pinnedInjectCount)
+        : []
+      let hits: MemHit[] = []
       const text = latestUserText(session)
-      if (text === null) return result
-      try {
-        const embedding = await this.embedding.embed(text, 'query')
-        const hits = this.store.search(
-          embedding,
-          'project',
-          projectOf(session),
-          this.embedding.dimensions,
-          this.config.autoInjectCount,
-          this.config.autoInjectThreshold,
-        )
-        if (hits.length === 0) return result
-        // Sections carry no order metadata after assembly, so insert before
-        // the static 'memory' guidance section (its stable anchor).
-        const injected = {
-          name: 'memory-context',
-          text: renderMemoryContext(hits),
+      if (text !== null) {
+        try {
+          const embedding = await this.embedding.embed(text, 'query')
+          hits = this.store.search(
+            embedding,
+            'project',
+            project,
+            this.embedding.dimensions,
+            this.config.autoInjectCount,
+            this.config.autoInjectThreshold,
+          )
+        } catch {
+          // Embedding unavailable (cold or missing model): pinned rules still inject.
         }
-        const anchor = result.sections.findIndex((section) => section.name === 'memory')
-        const sections = [...result.sections]
-        if (anchor === -1) sections.push(injected)
-        else sections.splice(anchor, 0, injected)
-        return { ...result, sections }
-      } catch {
-        // Embedding unavailable (cold or missing model): skip injection.
-        return result
       }
+      if (pinned.length === 0 && hits.length === 0) return result
+      // Sections carry no order metadata after assembly, so insert before
+      // the static 'memory' guidance section (its stable anchor).
+      const injected = {
+        name: 'memory-context',
+        text: renderMemoryContext(pinned, hits),
+      }
+      const anchor = result.sections.findIndex((section) => section.name === 'memory')
+      const sections = [...result.sections]
+      if (anchor === -1) sections.push(injected)
+      else sections.splice(anchor, 0, injected)
+      return { ...result, sections }
     })
     this.#registerTools(ctx)
     ctx.systemPrompt.section({
@@ -432,6 +456,10 @@ export class MemService extends TypertRemoteService {
           enum: ['project', 'global'],
           description: "'project' (default) scopes to the current working-directory tree; 'global' applies to every workspace.",
         },
+        pinned: {
+          type: 'boolean',
+          description: 'Pin this memory: it is then ALWAYS injected into the prompt regardless of similarity. Use for absolute rules the user stated ("never", "always", "must").',
+        },
       },
       output: {
         schema: {
@@ -456,7 +484,7 @@ export class MemService extends TypertRemoteService {
         const scope = resolveScope(args.scope, 'project')
         const project = scope === 'global' ? null : projectOf(exec.agent?.session)
         const embedding = await service.embedding.embed(content, 'document')
-        const result = service.store.record(content, normalizeTags(args.tags), scope, project, exec.agent?.session.id ?? null, embedding, service.embedding.dimensions, service.config.recordDedupThreshold)
+        const result = service.store.record(content, normalizeTags(args.tags), scope, project, exec.agent?.session.id ?? null, embedding, service.embedding.dimensions, service.config.recordDedupThreshold, args.pinned === true)
         service.pushActivity('record', content)
         return {
           status: result.status,
@@ -705,7 +733,7 @@ export class MemService extends TypertRemoteService {
     const scope = resolveScope(request.scope, 'project')
     const project = scope === 'global' ? null : projectOf(agent.session)
     const embedding = await this.embedding.embed(content, 'document')
-    const result = this.store.record(content, normalizeTags(request.tags), scope, project, agent.session.id, embedding, this.embedding.dimensions, this.config.recordDedupThreshold)
+    const result = this.store.record(content, normalizeTags(request.tags), scope, project, agent.session.id, embedding, this.embedding.dimensions, this.config.recordDedupThreshold, request.pinned === true)
     this.pushActivity('record', content)
     return {
       status: result.status,
@@ -740,6 +768,16 @@ export class MemService extends TypertRemoteService {
     const updated = this.store.setEnabled(id, enabled)
     if (updated) this.pushActivity(enabled ? 'record' : 'forget', id)
     return { id, enabled, updated }
+  }
+
+  /** Pin or unpin one memory (pinned rules are always injected). */
+  @Remote('setPinned')
+  setPinned(request: MemSetPinnedRequest): MemSetPinnedResponse {
+    const id = resolveText(request.id, 'id', 200)
+    const pinned = request.pinned === true
+    const updated = this.store.setPinned(id, pinned)
+    if (updated) this.pushActivity(pinned ? 'record' : 'forget', id)
+    return { id, pinned, updated }
   }
 
   /** Embedding cache statistics with the top-hit ranking (stats modal). */

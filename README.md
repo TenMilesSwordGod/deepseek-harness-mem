@@ -17,6 +17,7 @@ It gives the coding agent a durable, SQLite-backed memory with local CPU embeddi
 - **Post-turn auto-capture**: when a turn completes, an LLM summarizes the transcript and automatically records the durable memories worth reusing (`autoCapture` / `autoCaptureMinChars` / `autoCaptureMaxMemories` config) — they are ready for the next session without any manual step.
 
 - `simplemem_record` / `simplemem_search` / `simplemem_forget` tools with deduplication and `project` / `global` scoping (project = the session's working-directory tree, mirroring opencode-mem's per-project shards).
+- **Pinned rules** — `simplemem_record(..., pinned: true)` (or the 📌 button in the stats modal) pins a memory so it is **always injected** into the prompt, bypassing the similarity gate, even while the embedding model is cold. Use it for absolute user rules ("never restart the harness server", "always ask first"). Mirrors Hermes's always-on `MEMORY.md` and opencode-mem's "put stable rules in AGENTS.md, not in retrievable memory".
 - A system-prompt section that tells the model **when to read and when to write**: search at task start and before answering questions about past work; record as soon as a durable fact, preference, or decision settles; never record transient chat details.
 - SQLite storage on `node:sqlite` (zero native dependencies), with a monotonic `SCHEMA_VERSION` and automatic migration.
 - Local embeddings via `@huggingface/transformers` (ONNX, CPU), with per-model task prefixes (`search_document:`/`search_query:` for nomic, `passage:`/`query:` for e5, none for MiniLM/jina), mean pooling, L2 normalization, and an LRU cache.
@@ -145,6 +146,7 @@ All keys live under the `mem` row's `config` (schemastery-validated); `embedding
 | `searchLimit` | `10` | Default result cap |
 | `maxRecordChars` | `4000` | Hard cap per recorded content |
 | `activityRingSize` | `8` | Host-side recent-activity ring for the widget |
+| `pinnedInjectCount` | `4` | Max pinned rules injected every turn; 0 disables pinned injection |
 
 ---
 
@@ -152,7 +154,7 @@ All keys live under the `mem` row's `config` (schemastery-validated); `embedding
 
 | Tool | Arguments | Behavior |
 |---|---|---|
-| `simplemem_record` | `content`, `tags?`, `scope?` | Embed + store; deduplicates against near twins (`status: "deduplicated"` with similarity) |
+| `simplemem_record` | `content`, `tags?`, `scope?`, `pinned?` | Embed + store; deduplicates against near twins (`status: "deduplicated"` with similarity); `pinned: true` makes the memory always injected |
 | `simplemem_search` | `query`, `limit?`, `scope?`, `minSimilarity?` | Ranked cosine hits with similarity scores |
 | `simplemem_forget` | `memory_id` | Delete one memory by id |
 

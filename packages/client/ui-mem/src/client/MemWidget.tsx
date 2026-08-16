@@ -26,8 +26,9 @@ export interface MemActions extends MemStatsActions {
   models(): Promise<RemoteResult<import('@deepseek-ai/dsh-simplemem/client').MemModelsResponse>>
   configure(model: string): Promise<RemoteResult<import('@deepseek-ai/dsh-simplemem/client').MemConfigureResponse>>
   search(query: string, limit: number): Promise<RemoteResult<import('@deepseek-ai/dsh-simplemem/client').MemSearchResponse>>
-  record(content: string, tags?: string, scope?: 'project' | 'global'): Promise<RemoteResult<import('@deepseek-ai/dsh-simplemem/client').MemRecordResponse>>
+  record(content: string, tags?: string, scope?: 'project' | 'global', pinned?: boolean): Promise<RemoteResult<import('@deepseek-ai/dsh-simplemem/client').MemRecordResponse>>
   forget(id: string): Promise<RemoteResult<import('@deepseek-ai/dsh-simplemem/client').MemForgetResponse>>
+  setPinned(id: string, pinned: boolean): Promise<RemoteResult<import('@deepseek-ai/dsh-simplemem/client').MemSetPinnedResponse>>
 }
 
 /** Full composed props: session standard kit + injected verbs + locale seat. */
@@ -129,6 +130,7 @@ export function MemWidget({
   cacheStats,
   listAll,
   setEnabled,
+  setPinned,
   search,
   record,
   forget,
@@ -144,6 +146,7 @@ export function MemWidget({
   const [searching, setSearching] = useState(false)
   const [results, setResults] = useState<Array<{ id: string; content: string; tags: string; similarity: number }>>([])
   const [recordDraft, setRecordDraft] = useState('')
+  const [recordPinned, setRecordPinned] = useState(false)
   const [recording, setRecording] = useState(false)
   const [recordFeedback, setRecordFeedback] = useState<string | null>(null)
   const [toast, setToast] = useState<Toast | null>(null)
@@ -270,15 +273,16 @@ export function MemWidget({
     if (content === '' || recording) return
     setRecording(true)
     setRecordFeedback(null)
-    void record(content).then((result) => {
+    void record(content, undefined, undefined, recordPinned).then((result) => {
       setRecording(false)
       if (result.ok) {
         setRecordDraft('')
+        setRecordPinned(false)
         setRecordFeedback(result.value.status === 'deduplicated' ? t('dedup') : `${t('recorded')} · ${result.value.count} ${t('count')}`)
         void loadStatus()
       }
     })
-  }, [recordDraft, recording, record, t, loadStatus])
+  }, [recordDraft, recordPinned, recording, record, t, loadStatus])
 
   const onForget = useCallback((id: string) => {
     void forget(id).then((result) => {
@@ -536,6 +540,15 @@ export function MemWidget({
           </div>
 
           <div className="dshmem-record">
+            <label className="dshmem-record-pinned">
+              <input
+                type="checkbox"
+                checked={recordPinned}
+                onChange={(event) => { setRecordPinned(event.target.checked) }}
+              />
+              <span>{t('pinnedLabel')}</span>
+              <span className="dshmem-record-pinned-tip">{t('pinnedHint')}</span>
+            </label>
             <div className="dshmem-record-box">
               <textarea
                 className="dshmem-record-input"
@@ -580,6 +593,7 @@ export function MemWidget({
         cacheStats={cacheStats}
         listAll={listAll}
         setEnabled={setEnabled}
+        setPinned={setPinned}
         forget={forget}
         record={record}
       />

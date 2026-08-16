@@ -96,6 +96,7 @@ const memRecordRequestSchema = z.object({
   content: z.string(),
   tags: z.string().optional(),
   scope: z.enum(['project', 'global']).optional(),
+  pinned: z.boolean().optional(),
 })
 
 const memRecordResponseSchema = z.object({
@@ -143,6 +144,7 @@ const memListAllResponseSchema = z.object({
     scope: z.enum(['project', 'global']),
     dims: z.number(),
     enabled: z.boolean(),
+    pinned: z.boolean(),
     createdAt: z.number(),
   })),
   total: z.number(),
@@ -153,6 +155,10 @@ const memListAllResponseSchema = z.object({
 const memSetEnabledRequestSchema = z.object({ id: z.string(), enabled: z.boolean() })
 
 const memSetEnabledResponseSchema = z.object({ id: z.string(), enabled: z.boolean(), updated: z.boolean() })
+
+const memSetPinnedRequestSchema = z.object({ id: z.string(), pinned: z.boolean() })
+
+const memSetPinnedResponseSchema = z.object({ id: z.string(), pinned: z.boolean(), updated: z.boolean() })
 
 const memWarmupResponseSchema = z.object({ ready: z.boolean() })
 
@@ -310,6 +316,17 @@ const invocations: readonly InvocationDescriptor[] = [
       jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemSetEnabledRequest', memSetEnabledRequestSchema),
     ],
     result: codec('@deepseek-ai/dsh-simplemem/client#MemSetEnabledResponse', memSetEnabledResponseSchema),
+  },
+  {
+    id: '@deepseek-ai/dsh-simplemem#memory/setPinned',
+    service: 'memory',
+    namespace: 'memory',
+    method: 'setPinned',
+    invocation: { kind: 'direct' },
+    parameters: [
+      jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemSetPinnedRequest', memSetPinnedRequestSchema),
+    ],
+    result: codec('@deepseek-ai/dsh-simplemem/client#MemSetPinnedResponse', memSetPinnedResponseSchema),
   },
   {
     id: '@deepseek-ai/dsh-simplemem#memory/cacheStats',

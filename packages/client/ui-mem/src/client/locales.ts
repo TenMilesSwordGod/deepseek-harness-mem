@@ -76,6 +76,11 @@ export const zh = {
   scopeAll: '全部',
   prevPage: '上一页',
   nextPage: '下一页',
+  pinnedLabel: '固定规则',
+  pinnedHint: '固定规则会无条件注入每次对话，适用于「绝不能 / 必须」这类绝对规则',
+  pinned: '已固定',
+  pin: '固定',
+  unpin: '取消固定',
 } as const
 
 export type MemKey = keyof typeof zh
@@ -152,4 +157,9 @@ export const en: Record<MemKey, string> = {
   scopeAll: 'All',
   prevPage: 'Prev',
   nextPage: 'Next',
+  pinnedLabel: 'Fixed rule',
+  pinnedHint: 'Pinned rules are injected into every conversation unconditionally — use for absolute rules ("never" / "always" / "must")',
+  pinned: 'Pinned',
+  pin: 'Pin',
+  unpin: 'Unpin',
 }

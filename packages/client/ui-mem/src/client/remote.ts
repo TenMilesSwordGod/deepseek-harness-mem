@@ -30,6 +30,8 @@ import type {
   MemSearchResponse,
   MemSetEnabledRequest,
   MemSetEnabledResponse,
+  MemSetPinnedRequest,
+  MemSetPinnedResponse,
   MemStatus,
   MemWarmupResponse,
 } from '@deepseek-ai/dsh-simplemem/client'
@@ -114,6 +116,7 @@ const memRecordRequestSchema = z.object({
   content: z.string(),
   tags: z.string().optional(),
   scope: z.enum(['project', 'global']).optional(),
+  pinned: z.boolean().optional(),
 })
 
 const memRecordResponseSchema = z.object({
@@ -161,6 +164,7 @@ const memListAllResponseSchema = z.object({
     scope: z.enum(['project', 'global']),
     dims: z.number(),
     enabled: z.boolean(),
+    pinned: z.boolean(),
     createdAt: z.number(),
   })),
   total: z.number(),
@@ -171,6 +175,10 @@ const memListAllResponseSchema = z.object({
 const memSetEnabledRequestSchema = z.object({ id: z.string(), enabled: z.boolean() })
 
 const memSetEnabledResponseSchema = z.object({ id: z.string(), enabled: z.boolean(), updated: z.boolean() })
+
+const memSetPinnedRequestSchema = z.object({ id: z.string(), pinned: z.boolean() })
+
+const memSetPinnedResponseSchema = z.object({ id: z.string(), pinned: z.boolean(), updated: z.boolean() })
 
 const memWarmupResponseSchema = z.object({ ready: z.boolean() })
 
@@ -337,6 +345,17 @@ export const memoryRemote: TypertRemoteContribution = {
       result: codec('@deepseek-ai/dsh-simplemem/client#MemSetEnabledResponse', memSetEnabledResponseSchema),
     },
     {
+      id: '@deepseek-ai/dsh-simplemem#memory/setPinned',
+      service: 'memory',
+      namespace: 'memory',
+      method: 'setPinned',
+      invocation: { kind: 'direct' },
+      parameters: [
+        jsonParam('request', 'request', '@deepseek-ai/dsh-simplemem/client#MemSetPinnedRequest', memSetPinnedRequestSchema),
+      ],
+      result: codec('@deepseek-ai/dsh-simplemem/client#MemSetPinnedResponse', memSetPinnedResponseSchema),
+    },
+    {
       id: '@deepseek-ai/dsh-simplemem#memory/cacheStats',
       service: 'memory',
       namespace: 'memory',
@@ -384,6 +403,7 @@ export interface MemoryRemoteNamespace {
   cacheStats(): Promise<RemoteResult<MemCacheStats>>
   listAll(sessionId: SessionId, request: MemListAllRequest): Promise<RemoteResult<MemListAllResponse>>
   setEnabled(request: MemSetEnabledRequest): Promise<RemoteResult<MemSetEnabledResponse>>
+  setPinned(request: MemSetPinnedRequest): Promise<RemoteResult<MemSetPinnedResponse>>
   search(sessionId: SessionId, request: MemSearchRequest): Promise<RemoteResult<MemSearchResponse>>
   record(sessionId: SessionId, request: MemRecordRequest): Promise<RemoteResult<MemRecordResponse>>
   list(sessionId: SessionId, request: MemListRequest): Promise<RemoteResult<MemListResponse>>

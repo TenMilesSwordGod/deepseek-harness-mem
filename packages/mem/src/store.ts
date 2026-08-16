@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto'
 import type { MemoryScope, MemHit } from './types.ts'
 
 /** Bump when the on-disk schema changes incompatibly. */
-const SCHEMA_VERSION = 3
+const SCHEMA_VERSION = 4
 
 /** One stored row as read from SQLite. */
 interface MemoryRow {
@@ -26,6 +26,7 @@ interface MemoryRow {
   embedding: Uint8Array
   dims: number
   enabled: number
+  pinned: number
   created_at: number
 }
 
@@ -44,6 +45,7 @@ CREATE TABLE IF NOT EXISTS memories (
   embedding BLOB NOT NULL,
   dims INTEGER NOT NULL DEFAULT 0,
   enabled INTEGER NOT NULL DEFAULT 1,
+  pinned INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
@@ -105,19 +107,25 @@ export class MemoryStore {
       // v1 -> v2: rows gain a dims column; v1 stored nomic 768d embeddings.
       this.#db.exec('ALTER TABLE memories ADD COLUMN dims INTEGER NOT NULL DEFAULT 768')
       this.#db.exec('ALTER TABLE memories ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1')
+      this.#db.exec('ALTER TABLE memories ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0')
       this.#db.prepare('UPDATE mem_meta SET value = ? WHERE key = ?').run(String(SCHEMA_VERSION), 'schema_version')
     } else if (version === 2) {
       // v2 -> v3: rows gain the enabled flag.
       this.#db.exec('ALTER TABLE memories ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1')
+      this.#db.exec('ALTER TABLE memories ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0')
+      this.#db.prepare('UPDATE mem_meta SET value = ? WHERE key = ?').run(String(SCHEMA_VERSION), 'schema_version')
+    } else if (version === 3) {
+      // v3 -> v4: rows gain the pinned flag (always-injected rules).
+      this.#db.exec('ALTER TABLE memories ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0')
       this.#db.prepare('UPDATE mem_meta SET value = ? WHERE key = ?').run(String(SCHEMA_VERSION), 'schema_version')
     } else if (version !== SCHEMA_VERSION) {
       throw new Error(`mem store schema version ${version} is unsupported (expected ${SCHEMA_VERSION})`)
     }
     this.#insert = this.#db.prepare(
-      'INSERT INTO memories (id, content, tags, scope, project, session_id, embedding, dims, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO memories (id, content, tags, scope, project, session_id, embedding, dims, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     )
     this.#selectScope = this.#db.prepare(
-      'SELECT id, content, tags, scope, project, session_id, embedding, dims, enabled, created_at FROM memories WHERE scope = ? ORDER BY created_at DESC',
+      'SELECT id, content, tags, scope, project, session_id, embedding, dims, enabled, pinned, created_at FROM memories WHERE scope = ? ORDER BY created_at DESC',
     )
     this.#setEnabled = this.#db.prepare('UPDATE memories SET enabled = ?, updated_at = ? WHERE id = ?')
     this.#updateEmbedding = this.#db.prepare(
@@ -184,6 +192,7 @@ export class MemoryStore {
     embedding: Float32Array,
     dims: number,
     dedupThreshold: number,
+    pinned = false,
   ): { status: 'recorded' | 'deduplicated'; id: string; similarity?: number } {
     const candidates = this.#candidates(scope, project, dims)
     for (const row of candidates) {
@@ -194,7 +203,7 @@ export class MemoryStore {
     }
     const id = `mem-${randomUUID()}`
     const now = Date.now()
-    this.#insert.run(id, content, tags, scope, project, sessionId, embedding, dims, now, now)
+    this.#insert.run(id, content, tags, scope, project, sessionId, embedding, dims, pinned ? 1 : 0, now, now)
     return { status: 'recorded', id }
   }
 
@@ -272,6 +281,36 @@ export class MemoryStore {
     return result.changes > 0
   }
 
+  /** Pin or unpin one memory; pinned rules are always injected into the prompt. */
+  setPinned(id: string, pinned: boolean): boolean {
+    const result = this.#db.prepare('UPDATE memories SET pinned = ?, updated_at = ? WHERE id = ?').run(pinned ? 1 : 0, Date.now(), id)
+    return result.changes > 0
+  }
+
+  /**
+   * Enabled pinned rules for one project context, oldest first (stable order).
+   * Pure row read — no embedding needed, so it also works while the model is
+   * cold. Global rules apply everywhere; project rules apply to their project.
+   * @param project - canonical project key, or null for global-only context.
+   * @param limit - max rules to return.
+   */
+  pinnedRules(project: string | null, limit: number): Array<{ id: string; content: string; tags: string; scope: MemoryScope; pinned: boolean; createdAt: number }> {
+    const where = project === null
+      ? { sql: "pinned = 1 AND enabled = 1 AND scope = 'global'", params: [] as SQLInputValue[] }
+      : { sql: "pinned = 1 AND enabled = 1 AND (scope = 'global' OR (scope = 'project' AND project = ?))", params: [project] as SQLInputValue[] }
+    const rows = this.#db.prepare(
+      `SELECT id, content, tags, scope, project, pinned, created_at FROM memories WHERE ${where.sql} ORDER BY created_at ASC LIMIT ?`,
+    ).all(...where.params, limit) as unknown as Array<{
+      id: string
+      content: string
+      tags: string
+      scope: MemoryScope
+      pinned: number
+      created_at: number
+    }>
+    return rows.map((row) => ({ id: row.id, content: row.content, tags: row.tags, scope: row.scope, pinned: row.pinned === 1, createdAt: row.created_at }))
+  }
+
   /** Paginated full listing with scope filter and date ordering. */
   listAll(
     scope: 'all' | MemoryScope,
@@ -279,7 +318,7 @@ export class MemoryStore {
     sort: 'createdAtDesc' | 'createdAtAsc',
     offset: number,
     limit: number,
-  ): { items: Array<{ id: string; content: string; tags: string; scope: MemoryScope; dims: number; enabled: boolean; createdAt: number }>; total: number } {
+  ): { items: Array<{ id: string; content: string; tags: string; scope: MemoryScope; dims: number; enabled: boolean; pinned: boolean; createdAt: number }>; total: number } {
     const order = sort === 'createdAtAsc' ? 'ASC' : 'DESC'
     const where = scope === 'all'
       ? { sql: '1 = 1', params: [] as SQLInputValue[] }
@@ -288,7 +327,7 @@ export class MemoryStore {
         : { sql: '(scope = ? AND project = ?) OR scope = ?', params: [scope, project, 'global'] as SQLInputValue[] }
     const total = Number((this.#db.prepare(`SELECT COUNT(*) AS n FROM memories WHERE ${where.sql}`).get(...where.params) as { n: number }).n)
     const items = this.#db.prepare(
-      `SELECT id, content, tags, scope, dims, enabled, created_at FROM memories WHERE ${where.sql} ORDER BY created_at ${order} LIMIT ? OFFSET ?`,
+      `SELECT id, content, tags, scope, dims, enabled, pinned, created_at FROM memories WHERE ${where.sql} ORDER BY created_at ${order} LIMIT ? OFFSET ?`,
     ).all(...where.params, limit, offset) as unknown as Array<{
       id: string
       content: string
@@ -296,10 +335,11 @@ export class MemoryStore {
       scope: MemoryScope
       dims: number
       enabled: number
+      pinned: number
       created_at: number
     }>
     return {
-      items: items.map((row) => ({ id: row.id, content: row.content, tags: row.tags, scope: row.scope, dims: row.dims, enabled: row.enabled === 1, createdAt: row.created_at })),
+      items: items.map((row) => ({ id: row.id, content: row.content, tags: row.tags, scope: row.scope, dims: row.dims, enabled: row.enabled === 1, pinned: row.pinned === 1, createdAt: row.created_at })),
       total,
     }
   }

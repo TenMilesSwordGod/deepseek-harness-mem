@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-simplemem",
-  "version": "0.1.0",
+  "version": "0.1.20",
   "description": "simplemem: persistent semantic memory for DeepSeek Harness — SQLite, local CPU embeddings, top-right web widget",
   "type": "module",
   "main": "lib/index.js",

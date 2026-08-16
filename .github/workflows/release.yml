@@ -65,8 +65,8 @@ jobs:
 
       - name: Normalize artifact names
         run: |
-          mv dist/*simplemem-*.tgz dist/dsh-simplemem.tgz
-          mv dist/*dsh-client-ui-simplemem-*.tgz dist/dsh-client-ui-simplemem.tgz
+          mv dist/deepseek-ai-dsh-simplemem-*.tgz dist/dsh-simplemem.tgz
+          mv dist/deepseek-ai-dsh-client-ui-simplemem-*.tgz dist/dsh-client-ui-simplemem.tgz
 
       - name: Publish release with artifacts
         uses: softprops/action-gh-release@v2

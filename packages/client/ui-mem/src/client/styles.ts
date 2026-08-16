@@ -158,12 +158,13 @@ export const memStyles = `
   width: 328px;
   display: flex;
   flex-direction: column;
+  max-height: min(72vh, 660px);
+  overflow-y: auto;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 12px;
   background: var(--dsw-alias-bg-layer-2);
   box-shadow: 0 12px 40px var(--dsw-alias-bg-mask-2);
   z-index: 40;
-  overflow: hidden;
   animation: dshmem-pop-in var(--ds-transition-duration) var(--ds-ease-in-out);
   transform-origin: top right;
 }
@@ -450,6 +451,26 @@ export const memStyles = `
   border-color: var(--dsw-alias-state-error-primary);
 }
 
+.dshmem-model-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-caption);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out), color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.dshmem-model-expand:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-state-business-primary);
+}
+
 /* Tooltip bubble */
 
 .dshmem-tip {
@@ -668,9 +689,7 @@ export const memStyles = `
 }
 
 .dshmem-cache-tip-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.5;
 }
 
 @keyframes dshmem-fade-in {
@@ -689,7 +708,7 @@ export const memStyles = `
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 6px 14px;
   border-top: 1px solid var(--dsw-alias-border-l1);
   background: var(--dsw-specific-tip);
   font-size: 11px;
@@ -706,7 +725,7 @@ export const memStyles = `
 /* Record box */
 
 .dshmem-record {
-  padding: 8px 14px 12px;
+  padding: 8px 14px 10px;
   border-top: 1px solid var(--dsw-alias-border-l1);
 }
 
@@ -1156,10 +1175,11 @@ export const memStyles = `
 /* ── Pinned rules ────────────────────────────────────────────────── */
 
 .dshmem-record-pinned {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 5px;
+  margin-bottom: 6px;
+  font-size: 11px;
   color: var(--dsw-alias-state-business-primary);
   cursor: pointer;
   user-select: none;
@@ -1170,12 +1190,8 @@ export const memStyles = `
   margin: 0;
 }
 
-.dshmem-record-pinned-tip {
-  color: var(--dsw-alias-label-secondary);
-  font-size: 11px;
-}
-
 .dshmem-record-pinned-inline {
+  margin-bottom: 0;
   color: var(--dsw-alias-label-primary);
 }
 

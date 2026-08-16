@@ -141,6 +141,7 @@ export function MemWidget({
   const [statusSnapshot, setStatusSnapshot] = useState<MemStatus | null>(null)
   const [statusError, setStatusError] = useState(false)
   const [catalog, setCatalog] = useState<MemModelEntry[] | null>(null)
+  const [modelsExpanded, setModelsExpanded] = useState(false)
   const [configuring, setConfiguring] = useState(false)
   const [query, setQuery] = useState('')
   const [searching, setSearching] = useState(false)
@@ -389,6 +390,7 @@ export function MemWidget({
                   const dl = statusSnapshot?.download ?? null
                   const isDownloading = dl !== null && dl.model === entry.id && dl.state === 'running'
                   const isCurrent = statusSnapshot?.model === entry.id
+                  if (!modelsExpanded && !isCurrent) return null
                   return (
                     <div
                       className="dshmem-model-row"
@@ -452,6 +454,13 @@ export function MemWidget({
                     </div>
                   )
                 })}
+                <button
+                  type="button"
+                  className="dshmem-model-expand"
+                  onClick={() => { setModelsExpanded((current) => !current) }}
+                >
+                  {modelsExpanded ? `${t('modelCollapse')}（${catalog.length}）` : `${t('modelExpand')}（${catalog.length}）`}
+                </button>
               </div>
             )}
             {statusSnapshot !== null && (
@@ -540,14 +549,13 @@ export function MemWidget({
           </div>
 
           <div className="dshmem-record">
-            <label className="dshmem-record-pinned">
+            <label className="dshmem-record-pinned" title={t('pinnedHint')}>
               <input
                 type="checkbox"
                 checked={recordPinned}
                 onChange={(event) => { setRecordPinned(event.target.checked) }}
               />
               <span>{t('pinnedLabel')}</span>
-              <span className="dshmem-record-pinned-tip">{t('pinnedHint')}</span>
             </label>
             <div className="dshmem-record-box">
               <textarea

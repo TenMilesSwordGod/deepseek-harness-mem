@@ -81,6 +81,8 @@ export const zh = {
   pinned: '已固定',
   pin: '固定',
   unpin: '取消固定',
+  modelExpand: '展开模型列表',
+  modelCollapse: '收起模型列表',
 } as const
 
 export type MemKey = keyof typeof zh
@@ -162,4 +164,6 @@ export const en: Record<MemKey, string> = {
   pinned: 'Pinned',
   pin: 'Pin',
   unpin: 'Unpin',
+  modelExpand: 'Show all models',
+  modelCollapse: 'Hide models',
 }

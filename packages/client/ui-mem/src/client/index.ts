@@ -77,7 +77,7 @@ export async function apply(ctx: ClientContext): Promise<void> {
         listAll: (request) => memory.listAll(sessionId, request),
         setEnabled: (id, enabled) => memory.setEnabled({ id, enabled }),
         setPinned: (id, pinned) => memory.setPinned({ id, pinned }),
-        agentModel: () => memory.agentModel(),
+        agentModel: () => memory.agentModel(sessionId),
         consolidateAnalyze: (ids, model) => memory.consolidateAnalyze(sessionId, { ids, ...(model === undefined ? {} : { model }) }),
         consolidateApply: (plan) => memory.consolidateApply({ plan }),
         search: (query, limit) => memory.search(sessionId, { query, limit }),

@@ -417,7 +417,10 @@ export const memoryRemote: TypertRemoteContribution = {
       namespace: 'memory',
       method: 'agentModel',
       invocation: { kind: 'direct' },
-      parameters: [],
+      scope: { context: 'agent', wire: 'agentId' },
+      parameters: [
+        sessionParam,
+      ],
       result: codec('@deepseek-ai/dsh-simplemem/client#MemAgentModelResponse', memAgentModelResponseSchema),
     },
     {
@@ -493,7 +496,7 @@ export interface MemoryRemoteNamespace {
   listAll(sessionId: SessionId, request: MemListAllRequest): Promise<RemoteResult<MemListAllResponse>>
   setEnabled(request: MemSetEnabledRequest): Promise<RemoteResult<MemSetEnabledResponse>>
   setPinned(request: MemSetPinnedRequest): Promise<RemoteResult<MemSetPinnedResponse>>
-  agentModel(): Promise<RemoteResult<{ provider: string; model: string } | null>>
+  agentModel(sessionId: SessionId): Promise<RemoteResult<{ provider: string; model: string } | null>>
   consolidateAnalyze(sessionId: SessionId, request: MemConsolidateAnalyzeRequest): Promise<RemoteResult<MemConsolidateAnalyzeResponse>>
   consolidateApply(request: MemConsolidateApplyRequest): Promise<RemoteResult<MemConsolidateApplyResponse>>
   search(sessionId: SessionId, request: MemSearchRequest): Promise<RemoteResult<MemSearchResponse>>

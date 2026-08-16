@@ -397,12 +397,13 @@ export class MemService extends TypertRemoteService {
     try {
       const llm = ctx.get('llm') as { stream(options: Record<string, unknown>): AsyncIterable<{ type: string; text?: string }> } | undefined
       if (llm === undefined) return
-      const defaultModel = ctx.get('agentDefaultModel') as { provider?: string; model?: string; reasoningEffort?: string } | undefined
-      if (defaultModel?.provider === undefined || defaultModel.model === undefined) return
+      // The agent's live options carry the provider/model its requests use;
+      // `agentDefaultModel` settings are agent-scoped and not visible here.
+      const agentOptions = ctx.agents.get(session.id)?.options
+      if (agentOptions?.provider === undefined || agentOptions.model === undefined) return
       const options = {
-        provider: defaultModel.provider,
-        model: defaultModel.model,
-        ...(defaultModel.reasoningEffort === undefined ? {} : { reasoningEffort: defaultModel.reasoningEffort }),
+        provider: agentOptions.provider,
+        model: agentOptions.model,
         messages: [createUserMessage({
           content: [{ type: 'text', text: transcript }],
           source: { kind: 'plugin', plugin: 'simplemem' },
@@ -788,10 +789,17 @@ export class MemService extends TypertRemoteService {
 
   /** The agent's current default LLM (provider/model) for the review window. */
   @Remote('agentModel')
-  agentModel(): { provider: string; model: string } | null {
-    const current = this.ctx.get('agentDefaultModel') as { provider?: string; model?: string } | undefined
-    if (current === undefined || current.provider === undefined || current.model === undefined) return null
-    return { provider: current.provider, model: current.model }
+  agentModel(agent: Agent): { provider: string; model: string } | null {
+    const options = agent.options
+    if (options !== undefined && options.provider !== undefined && options.model !== undefined) {
+      return { provider: options.provider, model: options.model }
+    }
+    // Fallback: the agent-scoped default-model settings.
+    const current = agent.ctx?.get?.('agentDefaultModel') as { provider?: string; model?: string } | undefined
+    if (current !== undefined && current.provider !== undefined && current.model !== undefined) {
+      return { provider: current.provider, model: current.model }
+    }
+    return null
   }
 
   /**
@@ -811,7 +819,8 @@ export class MemService extends TypertRemoteService {
     if (rows.length === 0) throw new Error('selected memories not found')
     const usedModel = request.model !== undefined && request.model.provider !== '' && request.model.model !== ''
       ? { provider: request.model.provider, model: request.model.model }
-      : this.agentModel()
+      : this.agentModel(agent)
+    if (usedModel === null) throw new Error('no model available for this agent (agent.options unset)')
     const llm = this.ctx.get('llm') as { stream(options: Record<string, unknown>): AsyncIterable<{ type: string; text?: string }> } | undefined
     if (llm === undefined) throw new Error('llm service unavailable')
     const system = buildConsolidatePrompt(rows, this.config.consolidateMinUseCount, this.config.consolidateHighUseCount)

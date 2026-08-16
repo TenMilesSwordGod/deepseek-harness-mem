@@ -384,7 +384,10 @@ const invocations: readonly InvocationDescriptor[] = [
     namespace: 'memory',
     method: 'agentModel',
     invocation: { kind: 'direct' },
-    parameters: [],
+    scope: { context: 'agent', wire: 'agentId' },
+    parameters: [
+      agentParam,
+    ],
     result: codec('@deepseek-ai/dsh-simplemem/client#MemAgentModelResponse', memAgentModelResponseSchema),
   },
   {

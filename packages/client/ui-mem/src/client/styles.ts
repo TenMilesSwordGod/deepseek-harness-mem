@@ -979,7 +979,8 @@ export const memStyles = `
 
 .dshmem-stats-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 64px 48px 150px 96px;
+  /* check | content | scope | use | dims | date | actions */
+  grid-template-columns: 26px minmax(0, 1fr) 64px 44px 48px 150px 96px;
   gap: 8px;
   align-items: center;
   padding: 6px 8px;

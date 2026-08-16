@@ -168,7 +168,7 @@ async function applyOne(
     return {
       kind: 'merged',
       id: result.id,
-      detail: `merged ${usable.length} memory${usable.length > 1 ? 'ies' : 'y'} (${removed.map((id) => id.slice(0, 8)).join(', ')}) → ${result.id.slice(0, 8)}`,
+      detail: `merged ${usable.length} ${usable.length > 1 ? 'memories' : 'memory'} (${removed.map((id) => id.slice(0, 8)).join(', ')}) → ${result.id.slice(0, 8)}`,
     }
   }
   if (change.type === 'rewrite') {

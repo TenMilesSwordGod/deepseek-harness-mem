@@ -34,14 +34,17 @@ function normalizeTags(raw: string): string {
  * @returns the system prompt text.
  */
 export function buildConsolidatePrompt(rows: ConsolidateRow[], minUseCount: number, highUseCount: number): string {
-  const block = rows.map((row, index) => [
-    `[${index}] id=${row.id}`,
-    `content: ${row.content}`,
-    `tags: ${row.tags === '' ? '(none)' : row.tags}`,
-    `scope: ${row.scope}`,
-    `useCount: ${row.useCount}`,
-    row.pinned ? 'pinned: true — PROTECTED: never delete, merge, or rewrite this entry' : '',
-  ].filter(Boolean).join('\n')).join('\n\n')
+  const block = rows.map((row, index) => {
+    const content = row.content.length > 500 ? `${row.content.slice(0, 500)}…` : row.content
+    return [
+      `[${index}] id=${row.id}`,
+      `content: ${content}`,
+      `tags: ${row.tags === '' ? '(none)' : row.tags}`,
+      `scope: ${row.scope}`,
+      `useCount: ${row.useCount}`,
+      row.pinned ? 'pinned: true — PROTECTED: never delete, merge, or rewrite this entry' : '',
+    ].filter(Boolean).join('\n')
+  }).join('\n\n')
 
   return [
     'You are the memory curator for a coding agent. Clean up the selected memories below:',
@@ -142,15 +145,35 @@ export function parseConsolidatePlan(text: string): ConsolidatePlan {
 
 /** Minimal llm.stream shape used by {@link analyzeConsolidatePlan}. */
 export interface LlmStreamLike {
-  stream(options: Record<string, unknown>): AsyncIterable<{ type: string; text?: string }>
+  stream(options: Record<string, unknown>): AsyncIterable<{
+    type: string
+    text?: string
+    reason?: { kind?: string; failure?: { code?: string; message?: string } }
+  }>
 }
 
-/** Accumulate visible model output from a harness stream (text-delta chunks). */
-function collectText(stream: AsyncIterable<{ type: string; text?: string }>): Promise<string> {
+/**
+ * Accumulate visible model output from a harness stream (text-delta chunks).
+ * Terminal failure chunks (`type: 'finish'`, `reason.kind === 'error'`) are
+ * NOT swallowed: the runtime reports adapter/provider failures as chunks, so
+ * an otherwise-empty stream usually hides the real error behind it.
+ */
+function collectText(stream: AsyncIterable<{ type: string; text?: string; reason?: { kind?: string; failure?: { code?: string; message?: string } } }>): Promise<string> {
   return (async () => {
     let text = ''
     for await (const chunk of stream) {
-      if (chunk.type === 'text-delta' && chunk.text !== undefined) text += chunk.text
+      if (chunk.type === 'text-delta' && chunk.text !== undefined) {
+        text += chunk.text
+      } else if (chunk.type === 'finish') {
+        const reason = chunk.reason
+        if (reason?.kind === 'error' && reason.failure !== undefined) {
+          const failure = reason.failure
+          throw new Error(`model request failed: ${failure.code ?? 'ERR'} — ${failure.message ?? 'no message'}`)
+        }
+        if (reason?.kind === 'aborted') {
+          throw new Error('model request aborted')
+        }
+      }
     }
     return text
   })()

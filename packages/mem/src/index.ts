@@ -832,7 +832,11 @@ export class MemService extends TypertRemoteService {
       llm,
       options,
       (text) => createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'plugin', plugin: 'simplemem' } }),
-    )
+    ).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error)
+      this.ctx.logger.warn('simplemem consolidation analyze failed: %s', message)
+      throw error
+    })
     return { plan, rows, usedModel }
   }
 

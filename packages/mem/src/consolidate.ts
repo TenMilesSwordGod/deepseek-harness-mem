@@ -56,7 +56,7 @@ export function buildConsolidatePrompt(rows: ConsolidateRow[], minUseCount: numb
     'Memories:',
     block,
     '',
-    'Respond with ONLY a JSON object (no markdown fences), schema:',
+    'Respond with ONLY the raw JSON object — no markdown fences, no commentary, no reasoning, no trailing text. The response must start with "{" and end with "}". Schema:',
     JSON.stringify({
       summary: 'one-line summary of the pass',
       changes: [
@@ -102,17 +102,36 @@ const consolidatePlanSchema = z.object({
   changes: z.array(consolidateChangeSchema),
 })
 
-/** Strip optional markdown fences and parse the model's JSON plan. @throws on invalid input. */
+/**
+ * Parse the model's JSON plan, tolerating common wrapping:
+ * markdown fences, a reasoning/commentary prefix (the object is extracted
+ * from the first `{` to the last `}`), and trailing garbage.
+ * @throws on invalid input.
+ */
 export function parseConsolidatePlan(text: string): ConsolidatePlan {
   const cleaned = text
     .trim()
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\s*```$/, '')
+  const candidates: string[] = [cleaned]
+  const first = cleaned.indexOf('{')
+  const last = cleaned.lastIndexOf('}')
+  if (first !== -1 && last > first) {
+    candidates.push(cleaned.slice(first, last + 1))
+  }
   let payload: unknown
-  try {
-    payload = JSON.parse(cleaned)
-  } catch {
-    throw new Error(`consolidation returned non-JSON: ${text.slice(0, 120)}`)
+  let lastError: unknown
+  for (const candidate of candidates) {
+    try {
+      payload = JSON.parse(candidate)
+      break
+    } catch (error) {
+      lastError = error
+    }
+  }
+  if (payload === undefined) {
+    const preview = text.replace(/\s+/g, ' ').trim().slice(0, 200)
+    throw new Error(`consolidation returned non-JSON${preview === '' ? ' (empty response)' : `: ${preview}`} (${String(lastError)})`)
   }
   const result = consolidatePlanSchema.safeParse(payload)
   if (!result.success) {

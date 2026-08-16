@@ -831,6 +831,7 @@ export class MemService extends TypertRemoteService {
     for await (const chunk of llm.stream(options)) {
       if (chunk.type === 'text' && chunk.text !== undefined) text += chunk.text
     }
+    if (text.trim() === '') throw new Error('consolidation analysis returned an empty response — the model call may have failed')
     const plan = parseConsolidatePlan(text)
     return { plan, rows, usedModel }
   }
